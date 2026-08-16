@@ -12,6 +12,9 @@ if [[ ! -f "$ZINIT_HOME/zinit.zsh" ]]; then
 fi
 source "$ZINIT_HOME/zinit.zsh"
 
+# zinit registers aliases zi=zinit etc.; free up "zi" for zoxide's interactive picker
+unalias zi 2>/dev/null
+
 # ---------- Basic options ----------
 setopt AUTO_CD EXTENDED_GLOB NO_BEEP NO_FLOW_CONTROL INTERACTIVE_COMMENTS
 setopt COMPLETE_IN_WORD PROMPT_SUBST
@@ -108,11 +111,26 @@ if (( ${+widgets[_do_smart_suggestion]} )); then
   bindkey '^I' tab_complete_or_ai
 fi
 
+# ---------- zoxide (smart cd): z <dir>, zi <fzf picker> ----------
+if (( $+commands[zoxide] )); then
+  eval "$(zoxide init zsh)"
+fi
+
 # ---------- Everyday aliases ----------
-alias ls='ls --color=auto'
-alias ll='ls -lah --color=auto'
-alias la='ls -A --color=auto'
-alias l='ls -1'
+if (( $+commands[eza] )); then
+  alias ls='eza --group-directories-first'
+  alias ll='eza -lah --group-directories-first'
+  alias la='eza -a --group-directories-first'
+  alias l='eza -1'
+  alias lt='eza --tree'
+  alias lg='eza -lh --git'          # show git status column
+else
+  alias ls='ls --color=auto'
+  alias ll='ls -lah --color=auto'
+  alias la='ls -A --color=auto'
+  alias l='ls -1'
+fi
+
 alias grep='grep --color=auto'
 alias rg='rg --hidden --glob "!.git"'
 alias ..='cd ..'
