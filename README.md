@@ -88,6 +88,29 @@ export DEEPSEEK_API_KEY="..."
 Providers: `openai | azure_openai | anthropic | gemini | deepseek`.
 You can also put config in `~/.config/smart-suggestion/config.zsh`.
 
+### Custom endpoint (OpenAI-compatible)
+
+Point a provider at any compatible API (DeepSeek, Ollama, vLLM, ...) via its
+`*_BASE_URL` variable, e.g.:
+
+```sh
+export SMART_SUGGESTION_AI_PROVIDER=openai
+export OPENAI_API_KEY="sk-..."
+export OPENAI_BASE_URL="https://api.deepseek.com"
+```
+
+Anthropic example:
+
+```sh
+export SMART_SUGGESTION_AI_PROVIDER=anthropic
+export ANTHROPIC_API_KEY="sk-ant-..."
+export ANTHROPIC_BASE_URL="https://api.anthropic.com"
+```
+
+Available: `OPENAI_BASE_URL` (also works for local OpenAI-compatible servers
+like Ollama, e.g. `http://localhost:11434/v1`), `AZURE_OPENAI_BASE_URL`,
+`ANTHROPIC_BASE_URL`, `GEMINI_BASE_URL`, `DEEPSEEK_BASE_URL`.
+
 ## Aliases
 
 ```

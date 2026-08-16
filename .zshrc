@@ -43,12 +43,7 @@ zinit light Aloxaf/fzf-tab
 zinit light zsh-users/zsh-autosuggestions
 zinit light zsh-users/zsh-history-substring-search
 
-# AI completion (smart-suggestion, default key Ctrl-O) -- enabled automatically
-# once any provider API key is set
-#   Providers: openai | azure_openai | anthropic | gemini | deepseek
-#   Example: export OPENAI_API_KEY="sk-..."
-#            export SMART_SUGGESTION_AI_PROVIDER=deepseek
-#   Or write config to ~/.config/smart-suggestion/config.zsh
+# AI completion (smart-suggestion): enabled when any provider API key is set (see README)
 if [[ -n "${SMART_SUGGESTION_AI_PROVIDER:-}" || -n "${OPENAI_API_KEY:-}" \
    || -n "${ANTHROPIC_API_KEY:-}" || -n "${GEMINI_API_KEY:-}" || -n "${DEEPSEEK_API_KEY:-}" ]]; then
   zinit as"program" atclone'./build.sh' atpull'%atclone' \
@@ -92,9 +87,7 @@ bindkey '^[[B' history-substring-search-down
 bindkey '^[OA' history-substring-search-up
 bindkey '^[OB' history-substring-search-down
 
-# Tab unified completion: fzf-tab normal completion, fall back to AI when no candidates
-# Input starting with # -> translate directly into a command (skip fzf-tab)
-# (Active when smart-suggestion is loaded; ^o kept as manual trigger key)
+# Tab: fzf-tab completion; AI fallback on no candidates; '#'-prefixed input goes straight to AI (see README)
 if (( ${+widgets[_do_smart_suggestion]} )); then
   function tab_complete_or_ai() {
     if [[ $BUFFER == '#'* ]]; then
@@ -111,7 +104,7 @@ if (( ${+widgets[_do_smart_suggestion]} )); then
   bindkey '^I' tab_complete_or_ai
 fi
 
-# ---------- zoxide (smart cd): z <dir>, zi <fzf picker> ----------
+# ---------- zoxide ----------
 if (( $+commands[zoxide] )); then
   eval "$(zoxide init zsh)"
 fi
