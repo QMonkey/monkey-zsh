@@ -88,23 +88,6 @@ bindkey '^[[B' history-substring-search-down
 bindkey '^[OA' history-substring-search-up
 bindkey '^[OB' history-substring-search-down
 
-# Tab: fzf-tab completion; AI fallback on no candidates; '#'-prefixed input goes straight to AI (see README)
-if (( ${+widgets[_do_smart_suggestion]} )); then
-  function tab_complete_or_ai() {
-    if [[ $BUFFER == '#'* ]]; then
-      zle _do_smart_suggestion
-      return
-    fi
-    local buffer_before=$BUFFER
-    zle fzf-tab-complete
-    if [[ -n $BUFFER && $BUFFER == $buffer_before ]]; then
-      zle _do_smart_suggestion
-    fi
-  }
-  zle -N tab_complete_or_ai
-  bindkey '^I' tab_complete_or_ai
-fi
-
 # ---------- zoxide ----------
 if (( $+commands[zoxide] )); then
   eval "$(zoxide init zsh)"
@@ -131,6 +114,49 @@ alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
 
+# ---------- git aliases (curated from oh-my-zsh git plugin) ----------
+alias g='git'
+alias ga='git add'
+alias gaa='git add --all'
+alias gau='git add --update'
+alias gapa='git add --patch'
+alias gb='git branch'
+alias gba='git branch --all'
+alias gbd='git branch --delete'
+alias gbD='git branch --delete --force'
+alias gbl='git blame -b -w'
+alias gc='git commit --verbose'
+alias gca='git commit --verbose --all'
+alias gcam='git commit --all --message'
+alias gcmsg='git commit --message'
+alias gco='git checkout'
+alias gd='git diff'
+alias gdca='git diff --cached'
+alias gf='git fetch'
+alias gfa='git fetch --all --prune --jobs=10'
+alias gl='git pull'
+alias glg='git log --graph --oneline --decorate'
+alias gm='git merge'
+alias gp='git push'
+alias grb='git rebase'
+alias gst='git status'
+alias gsta='git stash push'
+alias gstp='git stash pop'
+alias gsw='git switch'
+alias gswc='git switch --create'
+alias gup='git pull --rebase'
+
+# ---------- colored man pages ----------
+# GROFF_NO_SGR forces groff to emit overstrike (X^HX) instead of SGR escapes,
+# which less then recolors via the LESS_TERMCAP_* mapping below.
+export GROFF_NO_SGR=1
 export MANPAGER='less -R'
 export LESS='-R'
+export LESS_TERMCAP_mb=$'\E[1;31m'
+export LESS_TERMCAP_md=$'\E[1;36m'
+export LESS_TERMCAP_me=$'\E[0m'
+export LESS_TERMCAP_so=$'\E[01;44;33m'
+export LESS_TERMCAP_se=$'\E[0m'
+export LESS_TERMCAP_us=$'\E[1;32m'
+export LESS_TERMCAP_ue=$'\E[0m'
 export FZF_DEFAULT_OPTS='--height 40% --border --inline-info'
