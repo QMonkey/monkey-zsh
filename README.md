@@ -24,11 +24,14 @@ Plugin management uses [Zinit](https://github.com/zdharma-continuum/zinit)
 - **zoxide**: `z` smart cd, `zi` interactive fzf picker
 - **eza aliases**: `ls` colored listing, `ll`, `la`, `lt` tree, `lg` git-status
   column (falls back to native `ls` when eza is missing)
+- **git aliases + forgit**: plain `g`/`gc`/`gp`/`gst`/... for common git ops;
+  fzf-interactive versions take over `ga` `gd` `glo` `gco` `gsw` `gbd` `grb` `gbl`
+  (forgit, requires fzf)
 
 ## Requirements
 
 - zsh 5.3+ (zinit's minimum; most features work on 5.1+, 5.3 enables the full feature set)
-- fzf (optional; used by fzf-tab and the AI picker)
+- fzf (optional; used by fzf-tab, the AI picker, and forgit)
 - zoxide / eza (optional; config degrades gracefully when missing)
 - go (optional; needed to build smart-suggestion on first load)
 
@@ -71,6 +74,43 @@ inherit the logged-in parent's environment anyway.
 | AI completion | Ctrl-O |
 | Smart cd | `z keyword` |
 | Interactive directory picker | `zi` |
+
+## forgit (fzf-powered git)
+
+All commands open an fzf picker for interactive selection. Plain `git`
+aliases (`g`/`gc`/`gp`/`gst`/...) live in the Aliases section below.
+
+| Alias | Action |
+|---|---|
+| `ga` | add files / hunks |
+| `grh` | reset HEAD (pick commit) |
+| `grs` | restore file |
+| `glo` | log (browse commits) |
+| `grl` | reflog |
+| `gd` | diff (working tree vs. commits) |
+| `gso` | show commit |
+| `gi` | edit .gitignore |
+| `gat` | edit .gitattributes |
+| `gcf` | checkout file |
+| `gcff` | checkout file from a commit |
+| `gcb` | checkout branch |
+| `gsw` | switch branch |
+| `gco` | checkout commit |
+| `gct` | checkout tag |
+| `gbd` | delete branch |
+| `grc` | revert commit |
+| `gclean` | clean untracked files |
+| `gss` | show stash |
+| `gsp` | stash push |
+| `gcp` | cherry-pick from branch |
+| `grb` | rebase |
+| `gfu` | fixup commit |
+| `gsq` | squash commit |
+| `grw` | reword commit |
+| `gbl` | blame |
+| `gwt` | worktree |
+| `gwa` | worktree add |
+| `gwd` | worktree delete |
 
 ## AI completion (smart-suggestion)
 
