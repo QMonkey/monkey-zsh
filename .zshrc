@@ -44,6 +44,11 @@ fi
 zinit light zsh-users/zsh-autosuggestions
 zinit light zsh-users/zsh-history-substring-search
 
+# forgit: fzf-powered git interaction (ga/gd/glo/...); fzf must be loaded first
+if (( $+commands[fzf] )); then
+  zinit light wfxr/forgit
+fi
+
 # AI completion (smart-suggestion): enabled when any provider API key is set (see README)
 if [[ -n "${SMART_SUGGESTION_AI_PROVIDER:-}" || -n "${OPENAI_API_KEY:-}" \
    || -n "${ANTHROPIC_API_KEY:-}" || -n "${GEMINI_API_KEY:-}" || -n "${DEEPSEEK_API_KEY:-}" ]]; then
@@ -115,22 +120,19 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 
 # ---------- git aliases (curated from oh-my-zsh git plugin) ----------
+# forgit takes over ga/gd/gbl/gco/gbd/gsw/grb (fzf-interactive versions);
+# the rest stay as plain git aliases. Loaded below, before this block.
 alias g='git'
-alias ga='git add'
 alias gaa='git add --all'
 alias gau='git add --update'
 alias gapa='git add --patch'
 alias gb='git branch'
 alias gba='git branch --all'
-alias gbd='git branch --delete'
 alias gbD='git branch --delete --force'
-alias gbl='git blame -b -w'
 alias gc='git commit --verbose'
 alias gca='git commit --verbose --all'
 alias gcam='git commit --all --message'
 alias gcmsg='git commit --message'
-alias gco='git checkout'
-alias gd='git diff'
 alias gdca='git diff --cached'
 alias gf='git fetch'
 alias gfa='git fetch --all --prune --jobs=10'
@@ -138,11 +140,9 @@ alias gl='git pull'
 alias glg='git log --graph --oneline --decorate'
 alias gm='git merge'
 alias gp='git push'
-alias grb='git rebase'
 alias gst='git status'
 alias gsta='git stash push'
 alias gstp='git stash pop'
-alias gsw='git switch'
 alias gswc='git switch --create'
 alias gup='git pull --rebase'
 
