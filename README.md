@@ -20,8 +20,7 @@ Plugin management uses [Zinit](https://github.com/zdharma-continuum/zinit)
 - **History substring search**: ↑/↓ fuzzy search over history
 - **Syntax highlighting**: fast-syntax-highlighting
 - **fzf integration**: Ctrl-R history, Ctrl-T files, Alt-C directories
-- **AI completion** (optional): smart-suggestion, merged into Tab
-  (falls back to AI when no candidates)
+- **AI completion** (optional): smart-suggestion, triggered with Ctrl-O
 - **zoxide**: `z` smart cd, `zi` interactive fzf picker
 - **eza aliases**: `ls` colored listing, `ll`, `la`, `lt` tree, `lg` git-status
   column (falls back to native `ls` when eza is missing)
@@ -69,8 +68,7 @@ inherit the logged-in parent's environment anyway.
 | fzf history | Ctrl-R |
 | fzf files | Ctrl-T |
 | fzf directory change | Alt-C |
-| AI completion | Tab (when no candidates) or Ctrl-O |
-| Improvised translation | `# description` + Tab replaces it with a command |
+| AI completion | Ctrl-O |
 | Smart cd | `z keyword` |
 | Interactive directory picker | `zi` |
 
