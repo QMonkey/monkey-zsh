@@ -37,8 +37,9 @@ compinit -u -d "${XDG_CACHE_HOME:-${HOME}/.cache}/zsh/zcompdump-$ZSH_VERSION"
 zinit light Aloxaf/fzf-tab
 
 # fzf system integration (Ctrl-R history / Ctrl-T files / Alt-C directories)
-[[ -f /usr/share/fzf/key-bindings.zsh ]] && source /usr/share/fzf/key-bindings.zsh
-[[ -f /usr/share/fzf/completion.zsh   ]] && source /usr/share/fzf/completion.zsh
+if (( $+commands[fzf] )); then
+  eval "$(fzf --zsh)"
+fi
 
 zinit light zsh-users/zsh-autosuggestions
 zinit light zsh-users/zsh-history-substring-search
