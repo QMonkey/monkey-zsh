@@ -4,6 +4,11 @@
 #  Prompt:        plain-text two-line (no icon font required)
 # ============================================================
 
+# ---------- Environment (via ~/.zprofile) ----------
+# zsh only sources ~/.zprofile for login shells; load it here so interactive
+# non-login shells get the same env. Login shells skip this (no double load).
+[[ ! -o login ]] && [[ -f ~/.zprofile ]] && source ~/.zprofile
+
 # ---------- Zinit bootstrapping ----------
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 if [[ ! -f "$ZINIT_HOME/zinit.zsh" ]]; then
