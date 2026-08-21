@@ -6,8 +6,19 @@
 
 # ---------- Environment (via ~/.zprofile) ----------
 # zsh only sources ~/.zprofile for login shells; load it here so interactive
-# non-login shells get the same env. Login shells skip this (no double load).
-[[ ! -o login ]] && [[ -f ~/.zprofile ]] && source ~/.zprofile
+# non-login shells get the same env.
+#
+#   - `-o login` true        -> login shell already sourced ~/.zprofile, skip.
+#   - `_ZPROFILE_LOADED` set -> already sourced in THIS process, skip.
+#       (NOT exported: an exported marker would leak into child shells and
+#        wrongly make them skip sourcing, losing env vars.)
+#   - `typeset -U PATH path` -> makes PATH idempotent, so even if ~/.zprofile
+#       is sourced more than once (e.g. nested shells), entries stay unique.
+typeset -U PATH path
+if [[ ! -o login && -z ${_ZPROFILE_LOADED:-} && -f ~/.zprofile ]]; then
+  source ~/.zprofile
+fi
+_ZPROFILE_LOADED=1
 
 # ---------- Zinit bootstrapping ----------
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
