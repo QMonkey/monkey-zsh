@@ -31,7 +31,7 @@ Plugin management uses [Zinit](https://github.com/zdharma-continuum/zinit)
 ## Requirements
 
 - zsh 5.3+ (zinit's minimum; most features work on 5.1+, 5.3 enables the full feature set)
-- fzf (optional; used by fzf-tab, the AI picker, and forgit)
+- fzf (optional; used by fzf-tab, the AI picker, and forgit — forgit requires fzf >= 0.60.0)
 - zoxide / eza (optional; config degrades gracefully when missing)
 - go (optional; needed to build smart-suggestion on first load)
 
