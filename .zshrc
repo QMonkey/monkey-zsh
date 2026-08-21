@@ -48,22 +48,21 @@ zinit light zsh-users/zsh-completions
 
 autoload -Uz compinit
 command mkdir -p "${XDG_CACHE_HOME:-${HOME}/.cache}/zsh"
-compinit -u -d "${XDG_CACHE_HOME:-${HOME}/.cache}/zsh/zcompdump-$ZSH_VERSION"
+compinit -d "${XDG_CACHE_HOME:-${HOME}/.cache}/zsh/zcompdump-$ZSH_VERSION"
 
-zinit light Aloxaf/fzf-tab
-
-# fzf system integration (Ctrl-R history / Ctrl-T files / Alt-C directories)
+# fzf-tab needs fzf installed (no specific version required)
 if (( $+commands[fzf] )); then
+  zinit light Aloxaf/fzf-tab
+
+  # fzf system integration (Ctrl-R history / Ctrl-T files / Alt-C directories)
   eval "$(fzf --zsh)"
+
+  # forgit: fzf-powered git interaction (ga/gd/glo/...); requires fzf >= 0.60.0 (see README)
+  zinit light wfxr/forgit
 fi
 
 zinit light zsh-users/zsh-autosuggestions
 zinit light zsh-users/zsh-history-substring-search
-
-# forgit: fzf-powered git interaction (ga/gd/glo/...); fzf must be loaded first
-if (( $+commands[fzf] )); then
-  zinit light wfxr/forgit
-fi
 
 # AI completion (smart-suggestion): enabled when any provider API key is set (see README)
 if [[ -n "${SMART_SUGGESTION_AI_PROVIDER:-}" || -n "${OPENAI_API_KEY:-}" \
@@ -95,7 +94,12 @@ zstyle ':vcs_info:git:*' unstagedstr ' *'
 zstyle ':vcs_info:git:*' formats ' %F{yellow}(%b%u%c)%f'
 zstyle ':vcs_info:git:*' actionformats ' %F{red}(%b|%a)%f'
 
-precmd() { vcs_info }
+# Register vcs_info via the hook mechanism, NOT `precmd() { vcs_info }`.
+# zsh dispatches to the `precmd_functions` array when it is non-empty, and
+# plugins (autosuggestions etc.) already populate it via add-zsh-hook; a legacy
+# `precmd()` function would be silently ignored. Hooks coexist with plugins.
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd vcs_info
 
 # Line 1: user@host  path  git status
 # Line 2: prompt char only (>), green=last command OK, red=failed
@@ -104,10 +108,10 @@ PROMPT2=$'%F{blue}.%f '
 PROMPT_EOL_MARK=''
 
 # ---------- Key bindings ----------
-bindkey '^[[A' history-substring-search-up
-bindkey '^[[B' history-substring-search-down
-bindkey '^[OA' history-substring-search-up
-bindkey '^[OB' history-substring-search-down
+# Use terminfo so arrow keys work across terminals (xterm/linux/tmux/...)
+zmodload zsh/terminfo
+bindkey "${terminfo[kcuu1]}" history-substring-search-up
+bindkey "${terminfo[kcud1]}" history-substring-search-down
 
 # ---------- zoxide ----------
 if (( $+commands[zoxide] )); then
@@ -119,9 +123,9 @@ if (( $+commands[eza] )); then
   alias ls='eza --group-directories-first'
   alias ll='eza -lah --group-directories-first'
   alias la='eza -a --group-directories-first'
-  alias l='eza -1'
-  alias lt='eza --tree'
-  alias lg='eza -lh --git'          # show git status column
+  alias l='eza -1 --group-directories-first'
+  alias lt='eza --tree --group-directories-first'
+  alias lg='eza -lh --git --group-directories-first'  # show git status column
 else
   alias ls='ls --color=auto'
   alias ll='ls -lah --color=auto'
@@ -160,7 +164,6 @@ alias gst='git status'
 alias gsta='git stash push'
 alias gstp='git stash pop'
 alias gswc='git switch --create'
-alias gup='git pull --rebase'
 
 # ---------- colored man pages ----------
 # GROFF_NO_SGR forces groff to emit overstrike (X^HX) instead of SGR escapes,
