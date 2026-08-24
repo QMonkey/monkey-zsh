@@ -87,11 +87,13 @@ os_detect() {
 	Linux)
 		if [ -f /etc/os-release ]; then
 			. /etc/os-release
-			case "$ID" in
-			ubuntu | debian | linuxmint | pop | elementary | zorin) echo "debian" ;;
-			arch | manjaro | endeavouros) echo "arch" ;;
-			*) echo "linux-unknown" ;;
-			esac
+		case "$ID" in
+		ubuntu | debian | linuxmint | pop | elementary | zorin) echo "debian" ;;
+		arch | manjaro | endeavouros) echo "arch" ;;
+		opensuse | opensuse-leap | opensuse-tumbleweed | opensuse-microos | suse | sles) echo "opensuse" ;;
+		centos | rhel | fedora | rocky | almalinux | ol) echo "centos" ;;
+		*) echo "linux-unknown" ;;
+		esac
 		else
 			echo "linux-unknown"
 		fi
@@ -114,10 +116,15 @@ sudo_cmd() {
 install_pkg() {
 	if ! $INSTALL_MODE; then return 1; fi
 	case "$OS" in
-	debian) sudo_cmd apt-get install -y "$@" ;;
-	arch) sudo_cmd pacman -S --noconfirm "$@" ;;
+	debian) sudo_cmd apt-get install -y "$@" || brew install "$@" ;;
+	arch) sudo_cmd pacman -S --noconfirm "$@" || brew install "$@" ;;
+	opensuse) sudo_cmd zypper --non-interactive install -y "$@" || brew install "$@" ;;
+	centos)
+		sudo_cmd dnf install -y epel-release || true
+		sudo_cmd dnf install -y "$@" || brew install "$@"
+		;;
 	macos) brew install "$@" ;;
-	*) return 1 ;;
+	*) brew install "$@" 2>/dev/null || return 1 ;;
 	esac
 }
 
@@ -125,19 +132,29 @@ get_install_hint() {
 	case "$OS" in
 	debian) echo "sudo apt-get install ${*}" ;;
 	arch) echo "sudo pacman -S ${*}" ;;
+	opensuse) echo "sudo zypper install ${*}" ;;
+	centos) echo "sudo dnf install ${*}" ;;
 	macos) echo "brew install ${*}" ;;
+	linux-unknown) echo "install ${*} manually or 'brew install ${*}'" ;;
 	*) echo "install ${*} manually" ;;
 	esac
 }
 
 # ──────────────────── main ────────────────────
 
+MISSING_REQUIRED=()
+MISSING_OPTIONAL=()
+
 echo -e "${BOLD}monkey-zsh dependency check${NC}"
 echo ""
 
 # ──── zsh version ────
 echo -e "${BOLD}zsh${NC}"
-check_version zsh 5.3 "zsh"
+if check_version zsh 5.3 "zsh"; then
+	:
+else
+	MISSING_REQUIRED+=("zsh")
+fi
 echo ""
 
 # ──── platform ────
@@ -146,6 +163,8 @@ echo -e "  OS: ${CYAN}$(uname -s)${NC}"
 case "$OS" in
 debian) echo -e "  Package manager: ${CYAN}apt${NC}" ;;
 arch) echo -e "  Package manager: ${CYAN}pacman${NC}" ;;
+opensuse) echo -e "  Package manager: ${CYAN}zypper${NC}" ;;
+centos) echo -e "  Package manager: ${CYAN}dnf${NC}" ;;
 macos) echo -e "  Package manager: ${CYAN}homebrew${NC}" ;;
 *) echo -e "  ${WARN} Unsupported OS — install dependencies manually" ;;
 esac
@@ -153,7 +172,6 @@ echo ""
 
 # ──── required tools ────
 echo -e "${BOLD}Required tools${NC}"
-MISSING_REQUIRED=()
 
 if check_bin git "git (required by zinit bootstrap)"; then
 	:
@@ -165,10 +183,26 @@ echo ""
 # ──── optional tools ────
 echo -e "${BOLD}Optional tools${NC}"
 echo "  (Missing won't block monkey-zsh, but will disable some features)"
-if check_bin fzf "fzf (fzf-tab / forgit / fzf integration)"; then :; fi
-if check_bin zoxide "zoxide (smart cd)"; then :; fi
-if check_bin eza "eza (ls aliases)"; then :; fi
-if check_bin go "go (build smart-suggestion on first load)"; then :; fi
+if check_bin fzf "fzf (fzf-tab / forgit / fzf integration)"; then
+	:
+else
+	MISSING_OPTIONAL+=("fzf")
+fi
+if check_bin zoxide "zoxide (smart cd)"; then
+	:
+else
+	MISSING_OPTIONAL+=("zoxide")
+fi
+if check_bin eza "eza (ls aliases)"; then
+	:
+else
+	MISSING_OPTIONAL+=("eza")
+fi
+if check_bin go "go (build smart-suggestion on first load)"; then
+	:
+else
+	MISSING_OPTIONAL+=("go")
+fi
 echo ""
 
 # ──── terminal capabilities ────
@@ -233,6 +267,14 @@ if $INSTALL_MODE && [[ ${#MISSING_REQUIRED[@]} -gt 0 ]]; then
 		["zsh"]="zsh"
 		["git"]="git"
 	)
+	declare -A ZYPPER_NAMES=(
+		["zsh"]="zsh"
+		["git"]="git"
+	)
+	declare -A YUM_NAMES=(
+		["zsh"]="zsh"
+		["git"]="git"
+	)
 	declare -A BREW_NAMES=(
 		["zsh"]="zsh"
 		["git"]="git"
@@ -243,6 +285,8 @@ if $INSTALL_MODE && [[ ${#MISSING_REQUIRED[@]} -gt 0 ]]; then
 		case "$OS" in
 		debian) echo "${APT_NAMES[$bin]:-$bin}" ;;
 		arch) echo "${PACMAN_NAMES[$bin]:-$bin}" ;;
+		opensuse) echo "${ZYPPER_NAMES[$bin]:-$bin}" ;;
+		centos) echo "${YUM_NAMES[$bin]:-$bin}" ;;
 		macos) echo "${BREW_NAMES[$bin]:-$bin}" ;;
 		*) echo "$bin" ;;
 		esac
@@ -266,6 +310,75 @@ if $INSTALL_MODE && [[ ${#MISSING_REQUIRED[@]} -gt 0 ]]; then
 			done
 		else
 			echo -e "${RED}Failed. Run: $(get_install_hint "${pkgs[*]}")${NC}"
+		fi
+	fi
+	echo ""
+fi
+
+# ──── install optional ────
+if $INSTALL_MODE && [[ ${#MISSING_OPTIONAL[@]} -gt 0 ]]; then
+	echo -e "${YELLOW}Installing missing optional tools: ${MISSING_OPTIONAL[*]}${NC}"
+	echo ""
+
+	declare -A APT_OPT=(
+		["fzf"]="fzf"
+		["zoxide"]="zoxide"
+		["eza"]="eza"
+		["go"]="golang-go"
+	)
+	declare -A PACMAN_OPT=(
+		["fzf"]="fzf"
+		["zoxide"]="zoxide"
+		["eza"]="eza"
+		["go"]="go"
+	)
+	declare -A ZYPPER_OPT=(
+		["fzf"]="fzf"
+		["zoxide"]="zoxide"
+		["eza"]="eza"
+		["go"]="go"
+	)
+	declare -A YUM_OPT=(
+		["fzf"]="fzf"
+		["zoxide"]="zoxide"
+		["eza"]="eza"
+		["go"]="golang"
+	)
+	declare -A BREW_OPT=(
+		["fzf"]="fzf"
+		["zoxide"]="zoxide"
+		["eza"]="eza"
+		["go"]="go"
+	)
+
+	opt_pkg_name() {
+		local bin="$1"
+		case "$OS" in
+		debian) echo "${APT_OPT[$bin]:-$bin}" ;;
+		arch) echo "${PACMAN_OPT[$bin]:-$bin}" ;;
+		opensuse) echo "${ZYPPER_OPT[$bin]:-$bin}" ;;
+		centos) echo "${YUM_OPT[$bin]:-$bin}" ;;
+		macos) echo "${BREW_OPT[$bin]:-$bin}" ;;
+		*) echo "$bin" ;;
+		esac
+	}
+
+	opkgs=()
+	for b in "${MISSING_OPTIONAL[@]}"; do
+		opkgs+=("$(opt_pkg_name "$b")")
+	done
+
+	if [[ ${#opkgs[@]} -gt 0 ]]; then
+		if install_pkg "${opkgs[@]}"; then
+			for bin in "${MISSING_OPTIONAL[@]}"; do
+				if command -v "$bin" &>/dev/null; then
+					echo -e "  ${PASS} ${bin} installed"
+				else
+					echo -e "  ${FAIL} ${bin} still missing"
+				fi
+			done
+		else
+			echo -e "${RED}Failed. Run: $(get_install_hint "${opkgs[*]}")${NC}"
 		fi
 	fi
 	echo ""
