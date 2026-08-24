@@ -31,6 +31,7 @@ Plugin management uses [Zinit](https://github.com/zdharma-continuum/zinit)
 ## Requirements
 
 - zsh 5.3+ (zinit's minimum; most features work on 5.1+, 5.3 enables the full feature set)
+- git (required; zinit is cloned via git on first startup)
 - fzf (optional; used by fzf-tab, the AI picker, and forgit — forgit requires fzf >= 0.60.0)
 - zoxide / eza (optional; config degrades gracefully when missing)
 - go (optional; needed to build smart-suggestion on first load)
@@ -44,6 +45,33 @@ chsh -s /usr/bin/zsh   # switch to zsh (optional)
 ```
 
 On first startup Zinit is cloned automatically and all plugins are downloaded.
+
+### Install dependencies by OS
+
+```sh
+# Ubuntu/Debian
+sudo apt-get install zsh git fzf zoxide eza golang-go
+
+# OpenSUSE
+sudo zypper install zsh git fzf zoxide eza go
+
+# CentOS (fzf/eza come from EPEL)
+sudo dnf install epel-release
+sudo dnf install zsh git fzf zoxide eza golang
+
+# Arch Linux
+sudo pacman -S zsh git fzf zoxide eza go
+
+# macOS
+brew install zsh git fzf zoxide eza go
+```
+
+Or run the health check with `--install` to auto-install missing
+dependencies (supports apt/zypper/dnf/pacman/brew):
+
+```sh
+./checkhealth.sh --install
+```
 
 ### Environment variables (login shell)
 
