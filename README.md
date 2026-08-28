@@ -38,7 +38,7 @@ Plugin management uses [Zinit](https://github.com/zdharma-continuum/zinit)
 
 ## Install
 
-```sh
+```bash
 git clone https://github.com/qmonkey/monkey-zsh ~/Documents/monkey-zsh
 ln -sf ~/Documents/monkey-zsh/.zshrc ~/.zshrc
 chsh -s /usr/bin/zsh   # switch to zsh (optional)
@@ -48,7 +48,7 @@ On first startup Zinit is cloned automatically and all plugins are downloaded.
 
 ### Install dependencies by OS
 
-```sh
+```bash
 # Ubuntu/Debian
 sudo apt-get install zsh git fzf zoxide eza golang-go
 
@@ -69,7 +69,7 @@ brew install zsh git fzf zoxide eza go
 Or run the health check with `--install` to auto-install missing
 dependencies (supports apt/zypper/dnf/pacman/brew):
 
-```sh
+```bash
 ./checkhealth.sh --install
 ```
 
@@ -88,63 +88,63 @@ inherit the logged-in parent's environment anyway.
 
 ## Daily usage
 
-| Action | Key / command |
-|---|---|
-| Reload config | `source ~/.zshrc` (`exec zsh` if plugins changed) |
-| Update all plugins | `zinit update` |
-| Update zinit itself | `zinit self-update` |
-| Fuzzy completion | Tab (fzf-tab) |
-| History substring search | ↑ / ↓ |
-| Accept autosuggestion | → |
-| fzf history | Ctrl-R |
-| fzf files | Ctrl-T |
-| fzf directory change | Alt-C |
-| AI completion | Ctrl-O |
-| Smart cd | `z keyword` |
-| Interactive directory picker | `zi` |
+| Action                       | Key / command                                     |
+| ---------------------------- | ------------------------------------------------- |
+| Reload config                | `source ~/.zshrc` (`exec zsh` if plugins changed) |
+| Update all plugins           | `zinit update`                                    |
+| Update zinit itself          | `zinit self-update`                               |
+| Fuzzy completion             | Tab (fzf-tab)                                     |
+| History substring search     | ↑ / ↓                                             |
+| Accept autosuggestion        | →                                                 |
+| fzf history                  | Ctrl-R                                            |
+| fzf files                    | Ctrl-T                                            |
+| fzf directory change         | Alt-C                                             |
+| AI completion                | Ctrl-O                                            |
+| Smart cd                     | `z keyword`                                       |
+| Interactive directory picker | `zi`                                              |
 
 ## forgit (fzf-powered git)
 
 All commands open an fzf picker for interactive selection. Plain `git`
 aliases (`g`/`gc`/`gp`/`gst`/...) live in the Aliases section below.
 
-| Alias | Action |
-|---|---|
-| `ga` | add files / hunks |
-| `grh` | reset HEAD (pick commit) |
-| `grs` | restore file |
-| `glo` | log (browse commits) |
-| `grl` | reflog |
-| `gd` | diff (working tree vs. commits) |
-| `gso` | show commit |
-| `gi` | edit .gitignore |
-| `gat` | edit .gitattributes |
-| `gcf` | checkout file |
-| `gcff` | checkout file from a commit |
-| `gcb` | checkout branch |
-| `gsw` | switch branch |
-| `gco` | checkout commit |
-| `gct` | checkout tag |
-| `gbd` | delete branch |
-| `grc` | revert commit |
-| `gclean` | clean untracked files |
-| `gss` | show stash |
-| `gsp` | stash push |
-| `gcp` | cherry-pick from branch |
-| `grb` | rebase |
-| `gfu` | fixup commit |
-| `gsq` | squash commit |
-| `grw` | reword commit |
-| `gbl` | blame |
-| `gwt` | worktree |
-| `gwa` | worktree add |
-| `gwd` | worktree delete |
+| Alias    | Action                          |
+| -------- | ------------------------------- |
+| `ga`     | add files / hunks               |
+| `grh`    | reset HEAD (pick commit)        |
+| `grs`    | restore file                    |
+| `glo`    | log (browse commits)            |
+| `grl`    | reflog                          |
+| `gd`     | diff (working tree vs. commits) |
+| `gso`    | show commit                     |
+| `gi`     | edit .gitignore                 |
+| `gat`    | edit .gitattributes             |
+| `gcf`    | checkout file                   |
+| `gcff`   | checkout file from a commit     |
+| `gcb`    | checkout branch                 |
+| `gsw`    | switch branch                   |
+| `gco`    | checkout commit                 |
+| `gct`    | checkout tag                    |
+| `gbd`    | delete branch                   |
+| `grc`    | revert commit                   |
+| `gclean` | clean untracked files           |
+| `gss`    | show stash                      |
+| `gsp`    | stash push                      |
+| `gcp`    | cherry-pick from branch         |
+| `grb`    | rebase                          |
+| `gfu`    | fixup commit                    |
+| `gsq`    | squash commit                   |
+| `grw`    | reword commit                   |
+| `gbl`    | blame                           |
+| `gwt`    | worktree                        |
+| `gwa`    | worktree add                    |
+| `gwd`    | worktree delete                 |
 
 ## AI completion (smart-suggestion)
 
 Enabled automatically once any provider API key is set, otherwise fully disabled:
 
-```sh
+```bash
 export OPENAI_API_KEY="sk-..."
 # or
 export SMART_SUGGESTION_AI_PROVIDER=deepseek
@@ -159,7 +159,7 @@ You can also put config in `~/.config/smart-suggestion/config.zsh`.
 Point a provider at any compatible API (DeepSeek, Ollama, vLLM, ...) via its
 `*_BASE_URL` variable, e.g.:
 
-```sh
+```bash
 export SMART_SUGGESTION_AI_PROVIDER=openai
 export OPENAI_API_KEY="sk-..."
 export OPENAI_BASE_URL="https://api.deepseek.com"
@@ -167,7 +167,7 @@ export OPENAI_BASE_URL="https://api.deepseek.com"
 
 Anthropic example:
 
-```sh
+```bash
 export SMART_SUGGESTION_AI_PROVIDER=anthropic
 export ANTHROPIC_API_KEY="sk-ant-..."
 export ANTHROPIC_BASE_URL="https://api.anthropic.com"
@@ -179,7 +179,7 @@ like Ollama, e.g. `http://localhost:11434/v1`), `AZURE_OPENAI_BASE_URL`,
 
 ## Aliases
 
-```
+```text
 ls ll la l lt lg    # eza family (lt = tree, lg = git status)
 grep rg             # colored grep / rg (--hidden)
 .. ... ....         # go up 1/2/3 levels
@@ -188,7 +188,7 @@ cat                 # untouched (no bat alias, keeps pipelines safe)
 
 ## Uninstall
 
-```sh
+```bash
 rm ~/.zshrc
 rm -rf ~/.local/share/zinit
 rm -rf ~/.cache/zsh ~/.local/state/zsh/history
