@@ -52,11 +52,12 @@ What the script does, step by step:
 
 1. Install zsh via the system package manager (no source build — every supported distro ships >= 5.3; checkhealth verifies the version)
 2. Pre-authorize `sudo` once — the only password entry of the whole run — and install a **temporary** NOPASSWD sudoers drop-in for the invoking user, removed automatically on exit. Homebrew resets the sudo timestamp on every `brew` invocation and WSL2 clock jumps invalidate tickets; NOPASSWD makes the run immune to both in any command order. If the drop-in cannot be installed, the script falls back to a background keepalive plus lazy re-authentication
-3. Install Homebrew (Linuxbrew) as the fallback package manager (eza/zoxide are absent from some distro repos) — its shellenv is persisted to your shell rc files
+3. Install Homebrew (Linuxbrew) as the fallback package manager (eza/zoxide are absent from some distro repos) — its shellenv is persisted to your login profile
 4. Clone monkey-zsh to `~/Documents/monkey-zsh` (or update it if already cloned)
-5. Install git, fzf, zoxide, eza and go via `checkhealth.sh --install` (with Homebrew fallback); WSL Windows-PATH shims (`/mnt/...`) are detected and the real Linux packages get installed instead
-6. Persist `~/go/bin`, `~/.cargo/bin` (and `/usr/local/bin`) in your shell rc files
-7. Symlink `~/.zshrc` to the repo and create `~/.zprofile`
+5. Symlink `~/.zshrc` to the repo and create `~/.zprofile`
+6. Install git, fzf, zoxide, eza and go via `checkhealth.sh --install` (with Homebrew fallback); WSL Windows-PATH shims (`/mnt/...`) are detected and the real Linux packages get installed instead
+7. Persist `~/go/bin`, `~/.cargo/bin` (and `/usr/local/bin`) in your login profile
+8. Switch the login shell to zsh (non-interactive; idempotent — skipped when already zsh)
 
 > Zinit and all plugins are cloned automatically on the first zsh start.
 >
