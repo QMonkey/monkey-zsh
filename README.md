@@ -38,6 +38,32 @@ Plugin management uses [Zinit](https://github.com/zdharma-continuum/zinit)
 
 ## Install
 
+Pick one of the two ways below: a one-click script, or manual setup.
+
+### Option 1: One-click install
+
+Install zsh and all dependencies, and set up monkey-zsh automatically:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/QMonkey/monkey-zsh/master/install.sh | bash
+```
+
+What the script does, step by step:
+
+1. Install zsh via the system package manager (no source build — every supported distro ships >= 5.3; checkhealth verifies the version)
+2. Pre-authorize `sudo` once — the only password entry of the whole run — and install a **temporary** NOPASSWD sudoers drop-in for the invoking user, removed automatically on exit. Homebrew resets the sudo timestamp on every `brew` invocation and WSL2 clock jumps invalidate tickets; NOPASSWD makes the run immune to both in any command order. If the drop-in cannot be installed, the script falls back to a background keepalive plus lazy re-authentication
+3. Install Homebrew (Linuxbrew) as the fallback package manager (eza/zoxide are absent from some distro repos) — its shellenv is persisted to your shell rc files
+4. Clone monkey-zsh to `~/Documents/monkey-zsh` (or update it if already cloned)
+5. Install git, fzf, zoxide, eza and go via `checkhealth.sh --install` (with Homebrew fallback); WSL Windows-PATH shims (`/mnt/...`) are detected and the real Linux packages get installed instead
+6. Persist `~/go/bin`, `~/.cargo/bin` (and `/usr/local/bin`) in your shell rc files
+7. Symlink `~/.zshrc` to the repo and create `~/.zprofile`
+
+> Zinit and all plugins are cloned automatically on the first zsh start.
+>
+> PATH changes only apply to shells started after the install — the script prints how to apply them to the current terminal.
+
+### Option 2: Manual installation
+
 ```bash
 git clone https://github.com/qmonkey/monkey-zsh ~/Documents/monkey-zsh
 ln -sf ~/Documents/monkey-zsh/.zshrc ~/.zshrc
