@@ -368,6 +368,23 @@ case ":$PATH:" in *":$HOME/.cargo/bin:"*) ;; *) export PATH="$HOME/.cargo/bin:$P
 	ok "PATH persistence added for /usr/local/bin, go/bin and cargo/bin."
 }
 
+# ────────────────── Step 7: Switch login shell ──────────────────
+
+switch_login_shell() {
+	# switch to zsh: non-interactive by design — the installer
+	# (and the monkey-env chain) runs unattended, so there is no prompt.
+	# Idempotent: skipped when the login shell is already zsh; skipped when
+	# zsh is not a valid login shell (not in /etc/shells).
+	local zsh_bin
+	zsh_bin=$(command -v zsh) || return 0
+	grep -qx "$zsh_bin" /etc/shells 2>/dev/null || return 0
+	if [ "$(getent passwd "$(id -un)" | cut -d: -f7)" = "$zsh_bin" ]; then
+		ok "login shell is already zsh."
+		return 0
+	fi
+	sudo_cmd chsh -s "$zsh_bin" "$(id -un)" && ok "login shell switched to zsh."
+}
+
 # ────────────────── Main ──────────────────
 
 main() {
@@ -403,13 +420,15 @@ main() {
 	persist_path
 	echo ""
 
+	switch_login_shell
+	echo ""
+
 	echo -e "${GREEN}${BOLD}monkey-zsh installation complete!${NC}"
 	echo ""
 	echo -e "  Config:   ${CYAN}$INSTALL_DIR/.zshrc${NC} → ${CYAN}~/.zshrc${NC}"
 	echo -e "  Plugins:  ${CYAN}~/.local/share/zinit/${NC} (cloned on first zsh start)"
 	echo ""
 	echo -e "  Start it: ${CYAN}exec zsh${NC}"
-	echo -e "  Make default: ${CYAN}chsh -s /usr/bin/zsh${NC}  (optional)"
 	echo -e "  Update monkey-zsh: ${CYAN}cd $INSTALL_DIR && git pull${NC}"
 	echo ""
 	# PATH exports were written to shell rc files, but they only apply to
