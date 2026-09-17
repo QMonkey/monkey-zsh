@@ -142,10 +142,39 @@ sudo_cmd() {
 	"$sudo_bin" "$@"
 }
 
+# ────────────────── package index refresh ──────────────────
+# Refresh the package index before installing: a stale or missing index is
+# the usual cause of "Unable to locate package" on freshly provisioned
+# machines (and universe-only packages like fzf/zoxide/eza are invisible
+# until the first update). Retried once for transient network failures;
+# a failed refresh is never fatal — the install step still runs (dnf
+# refreshes expired metadata on demand anyway, brew auto-updates).
+# Guarded to at most one refresh per run: checkhealth installs in two
+# batches (required + optional) and the index does not go stale between
+# them — call freely before every install.
+PKG_DB_REFRESHED=0
+refresh_pkg() {
+	[ "$PKG_DB_REFRESHED" -eq 1 ] && return 0
+	PKG_DB_REFRESHED=1
+	local attempt
+	for attempt in 1 2; do
+		case "$OS" in
+		debian) sudo_cmd apt-get update ;;
+		arch) sudo_cmd pacman -Sy ;;
+		opensuse) sudo_cmd zypper --non-interactive refresh ;;
+		centos) sudo_cmd dnf makecache -q ;;
+		macos | *) return 0 ;;
+		esac && return 0
+		[ "$attempt" -lt 2 ] && sleep 2
+	done
+	return 0
+}
+
 # System package manager install. Returns non-zero when the OS is unknown
 # or the manager fails, so callers can fall back to Homebrew (eza/zoxide
 # may be absent from older distro repos).
 install_with_system_mgr() {
+	refresh_pkg
 	case "$OS" in
 	debian) sudo_cmd apt-get install -y "$@" ;;
 	arch) sudo_cmd pacman -S --noconfirm "$@" ;;
@@ -159,10 +188,33 @@ install_with_system_mgr() {
 	esac
 }
 
+# Package name for a binary, per package manager: "go" is "golang-go" on
+# apt and "golang" on dnf, and the brew fallback must map those back (brew
+# validates every name up front and aborts the WHOLE batch when one is
+# unknown — a lone apt-style "golang-go" would prevent even the
+# brew-available fzf/zoxide/eza from installing).
+# A case function instead of `declare -A`: macOS still ships bash 3.2,
+# which has no associative arrays.
+pkg_name() {
+	local bin="$1" pm="$2"
+	case "$pm:$bin" in
+	debian:go) echo "golang-go" ;;
+	centos:go) echo "golang" ;;
+	brew:go) echo "go" ;;
+	*) echo "$bin" ;;
+	esac
+}
+
 install_pkg() {
 	if ! $INSTALL_MODE; then return 1; fi
 	if ! install_with_system_mgr "$@"; then
-		have_native_cmd brew && brew install "$@"
+		if have_native_cmd brew; then
+			local b bpkg=()
+			for b in "$@"; do
+				bpkg+=("$(pkg_name "$b" brew)")
+			done
+			brew install "${bpkg[@]}"
+		fi
 	fi
 	# Freshly installed binaries may be shadowed by bash's per-process
 	# command hash cache (a /mnt shim executed earlier in this same run);
@@ -324,20 +376,12 @@ install_missing_optional() {
 	fi
 	echo -e "${YELLOW}Installing missing optional tools: ${MISSING_OPTIONAL[*]}${NC}"
 	echo ""
-	# Package names that differ from the binary name, per package manager.
-	# A case function instead of `declare -A`: macOS still ships bash 3.2,
-	# which has no associative arrays.
-	pkg_name() {
-		local bin="$1"
-		case "$OS:$bin" in
-		debian:go) echo "golang-go" ;;
-		centos:go) echo "golang" ;;
-		*) echo "$bin" ;;
-		esac
-	}
+	# Package names that differ from the binary name live in the
+	# pm-parameterized pkg_name() above — one mapping table for the
+	# system manager and the brew fallback alike.
 	local opkgs=() bin b
 	for b in "${MISSING_OPTIONAL[@]}"; do
-		opkgs+=("$(pkg_name "$b")")
+		opkgs+=("$(pkg_name "$b" "$OS")")
 	done
 	if [[ ${#opkgs[@]} -gt 0 ]]; then
 		if install_pkg "${opkgs[@]}"; then
