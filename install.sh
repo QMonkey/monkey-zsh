@@ -225,6 +225,20 @@ setup_sudo() {
 	trap 'exit 143' TERM
 }
 
+# ────────────────── Step 0: Ensure git ──────────────────
+
+ensure_git() {
+	# git is needed BEFORE checkhealth.sh --install gets a chance to install
+	# it: the Homebrew installer clones the brew repository, and this script
+	# clones the monkey-zsh config — both happen earlier in the chain.
+	if ! have_native_cmd git; then
+		info "Installing git..."
+		install_with_system_mgr git
+		hash -r
+	fi
+	have_native_cmd git || fail "git installation failed — install it manually: $(get_install_hint git)."
+}
+
 # ────────────────── Step 1: Install zsh ──────────────────
 
 # Refresh the package index before installing: a stale or missing index is
@@ -424,6 +438,9 @@ main() {
 	echo ""
 
 	setup_sudo
+
+	ensure_git
+	echo ""
 
 	install_zsh
 	echo ""
