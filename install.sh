@@ -376,8 +376,8 @@ case ":$PATH:" in *":$HOME/.cargo/bin:"*) ;; *) export PATH="$HOME/.cargo/bin:$P
 # ────────────────── Step 7: Switch login shell ──────────────────
 
 switch_login_shell() {
-	# switch to zsh: non-interactive by design — the installer
-	# (and the monkey-env chain) runs unattended, so there is no prompt.
+	# switch to zsh: non-interactive by design — the installer runs
+	# unattended, so there is no prompt.
 	# Idempotent: skipped when the login shell is already zsh; skipped when
 	# zsh is not a valid login shell (not in /etc/shells).
 	local zsh_bin
