@@ -14,6 +14,7 @@ WARN="[${YELLOW}!${NC}]"
 
 ALL_PASSED=true
 INSTALL_MODE=false
+SKIP_CONFIG_CHECKS=false
 
 usage() {
 	cat <<EOF
@@ -23,6 +24,9 @@ Check and optionally install dependencies for monkey-zsh.
 
 OPTIONS
   -i, --install    Install missing dependencies
+  --skip-check-config
+                   Skip config-file checks (install.sh passes this: the
+                   config symlinks are linked after this script runs)
   -h, --help       Show this help
 
 Exit code: 1 if any required dependency is missing, 0 otherwise.
@@ -34,6 +38,7 @@ parse_args() {
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
 		-i | --install) INSTALL_MODE=true ;;
+		--skip-check-config) SKIP_CONFIG_CHECKS=true ;;
 		-h | --help) usage ;;
 		*)
 			echo "Unknown option: $1"
@@ -135,7 +140,10 @@ sudo_cmd() {
 	# spring a context-free password prompt. `-n true` never prompts; the
 	# interactive `-v` only runs when the ticket is actually gone.
 	local sudo_bin
-	sudo_bin=$(native_sudo) || { "$@"; return; }
+	sudo_bin=$(native_sudo) || {
+		"$@"
+		return
+	}
 	if ! "$sudo_bin" -n true 2>/dev/null; then
 		"$sudo_bin" -v -p "[monkey-zsh] sudo credentials needed to continue — enter your password: " || return 1
 	fi
@@ -207,19 +215,24 @@ pkg_name() {
 
 install_pkg() {
 	if ! $INSTALL_MODE; then return 1; fi
+	local _rc=0
 	if ! install_with_system_mgr "$@"; then
 		if have_native_cmd brew; then
 			local b bpkg=()
 			for b in "$@"; do
 				bpkg+=("$(pkg_name "$b" brew)")
 			done
-			brew install "${bpkg[@]}"
+			brew install "${bpkg[@]}" || _rc=1
+		else
+			_rc=1
 		fi
 	fi
 	# Freshly installed binaries may be shadowed by bash's per-process
 	# command hash cache (a /mnt shim executed earlier in this same run);
-	# re-scan PATH.
+	# re-scan PATH. Run AFTER capturing _rc — hash -r must not mask the
+	# install status.
 	hash -r
+	return "$_rc"
 }
 
 get_install_hint() {
@@ -311,6 +324,14 @@ check_terminal_caps() {
 }
 
 check_config_files() {
+	# --skip-check-config (passed by install.sh): the config symlinks are
+	# linked AFTER this script runs, so judging them here would fail every
+	# chained run and burn all three retries. Standalone runs (the manual
+	# diagnosis entry point) still get the full check.
+	if $SKIP_CONFIG_CHECKS; then
+		echo -e "  ${WARN} config checks skipped (handled by the installer)"
+		return 0
+	fi
 	echo -e "${BOLD}Config files${NC}"
 	local zshrc="${HOME}/.zshrc"
 	if [[ -L "$zshrc" ]]; then
@@ -356,6 +377,19 @@ check_python3() {
 	echo ""
 }
 
+# The required checks, in ONE place: main runs them up front, and
+# install_missing_required re-runs them after installing — the install
+# changed the world, so the verdict (ALL_PASSED / MISSING_REQUIRED) is
+# always recomputed from here and never carried over stale.
+run_required_checks() {
+	ALL_PASSED=true
+	MISSING_REQUIRED=()
+	print_zsh_version
+	check_required_tools
+	check_config_files
+	check_python3
+}
+
 install_missing_required() {
 	if ! $INSTALL_MODE || [[ ${#MISSING_REQUIRED[@]} -eq 0 ]]; then
 		return 0
@@ -363,16 +397,10 @@ install_missing_required() {
 	echo -e "${YELLOW}Installing missing packages: ${MISSING_REQUIRED[*]}${NC}"
 	echo ""
 	if install_pkg "${MISSING_REQUIRED[@]}"; then
-		echo -e "${GREEN}Done.${NC}"
-		local bin
-		for bin in "${MISSING_REQUIRED[@]}"; do
-			if have_native_cmd "$bin"; then
-				echo -e "  ${PASS} ${bin} installed"
-			else
-				ALL_PASSED=false
-				echo -e "  ${FAIL} ${bin} still missing"
-			fi
-		done
+		run_required_checks
+		if [[ ${#MISSING_REQUIRED[@]} -gt 0 ]]; then
+			echo -e "${RED}Run: $(get_install_hint "${MISSING_REQUIRED[*]}")${NC}"
+		fi
 	else
 		echo -e "${RED}Failed. Run: $(get_install_hint "${MISSING_REQUIRED[*]}")${NC}"
 	fi
@@ -429,13 +457,10 @@ main() {
 	MISSING_REQUIRED=()
 	MISSING_OPTIONAL=()
 	print_header
-	print_zsh_version
 	print_platform
-	check_required_tools
+	run_required_checks
 	check_optional_tools
 	check_terminal_caps
-	check_config_files
-	check_python3
 	install_missing_required
 	install_missing_optional
 	print_summary
