@@ -347,6 +347,15 @@ check_config_files() {
 	echo ""
 }
 
+check_python3() {
+	# TIOCSTI injection (install.sh's end-of-run terminal activation) needs
+	# python3 — system perl is the runtime fallback, never installed here,
+	# so it is not detected.
+	echo -e "${BOLD}python3${NC} (TIOCSTI injection)"
+	check_bin python3 "python3 (required by TIOCSTI injection)" || MISSING_REQUIRED+=("python3")
+	echo ""
+}
+
 install_missing_required() {
 	if ! $INSTALL_MODE || [[ ${#MISSING_REQUIRED[@]} -eq 0 ]]; then
 		return 0
@@ -426,6 +435,7 @@ main() {
 	check_optional_tools
 	check_terminal_caps
 	check_config_files
+	check_python3
 	install_missing_required
 	install_missing_optional
 	print_summary
