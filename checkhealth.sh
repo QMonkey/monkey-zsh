@@ -1,18 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly CYAN='\033[0;36m'
+readonly BOLD='\033[1m'
+readonly NC='\033[0m'
 
-PASS="[${GREEN}✓${NC}]"
-FAIL="[${RED}✗${NC}]"
-WARN="[${YELLOW}!${NC}]"
+# List-item helpers: 2-space indent, brackets outside the color span,
+# OK centered as [ OK ]. fail() does not abort — checkhealth must keep
+# going and summarize (exit status comes from REQUIRED_FAILURES).
+info() { echo -e "  [${CYAN}INFO${NC}] $*"; }
+ok() { echo -e "  [${GREEN} OK ${NC}] $*"; }
+warn() { echo -e "  [${YELLOW}WARN${NC}] $*"; }
+fail() {
+	echo -e "  [${RED}FAIL${NC}] $*"
+}
 
-ALL_PASSED=true
+REQUIRED_FAILURES=0
 INSTALL_MODE=false
 SKIP_CONFIG_CHECKS=false
 
@@ -74,11 +80,11 @@ native_sudo() {
 
 check_bin() {
 	if have_native_cmd "$1"; then
-		echo -e "  ${PASS} ${2:-$1}"
+		ok "${2:-$1}"
 		return 0
 	else
-		echo -e "  ${FAIL} ${2:-$1}"
-		ALL_PASSED=false
+		fail "${2:-$1}"
+		REQUIRED_FAILURES=$((REQUIRED_FAILURES + 1))
 		return 1
 	fi
 }
@@ -86,8 +92,8 @@ check_bin() {
 check_version() {
 	local bin="$1" min="$2" desc="$3"
 	if ! have_native_cmd "$bin"; then
-		echo -e "  ${FAIL} ${desc} (${bin} not found)"
-		ALL_PASSED=false
+		fail "${desc} (${bin} not found)"
+		REQUIRED_FAILURES=$((REQUIRED_FAILURES + 1))
 		return 1
 	fi
 	local ver="" flag
@@ -96,16 +102,16 @@ check_version() {
 		[[ -n "$ver" ]] && break
 	done
 	if [[ -z "$ver" ]]; then
-		echo -e "  ${FAIL} ${desc} (could not detect version)"
-		ALL_PASSED=false
+		fail "${desc} (could not detect version)"
+		REQUIRED_FAILURES=$((REQUIRED_FAILURES + 1))
 		return 1
 	fi
 	if printf '%s\n%s\n' "$min" "$ver" | sort -V -C; then
-		echo -e "  ${PASS} ${desc} ${ver}"
+		ok "${desc} ${ver}"
 		return 0
 	else
-		echo -e "  ${FAIL} ${desc} ${ver} (need >= ${min})"
-		ALL_PASSED=false
+		fail "${desc} ${ver} (need >= ${min})"
+		REQUIRED_FAILURES=$((REQUIRED_FAILURES + 1))
 		return 1
 	fi
 }
@@ -178,24 +184,6 @@ refresh_pkg() {
 	return 0
 }
 
-# System package manager install. Returns non-zero when the OS is unknown
-# or the manager fails, so callers can fall back to Homebrew (eza/zoxide
-# may be absent from older distro repos).
-install_with_system_mgr() {
-	refresh_pkg
-	case "$OS" in
-	debian) sudo_cmd apt-get install -y "$@" ;;
-	arch) sudo_cmd pacman -S --noconfirm "$@" ;;
-	opensuse) sudo_cmd zypper --non-interactive install -y "$@" ;;
-	centos)
-		sudo_cmd dnf install -y epel-release || true
-		sudo_cmd dnf install -y "$@"
-		;;
-	macos) brew install "$@" ;;
-	*) return 1 ;;
-	esac
-}
-
 # Package name for a binary, per package manager: "go" is "golang-go" on
 # apt and "golang" on dnf, and the brew fallback must map those back (brew
 # validates every name up front and aborts the WHOLE batch when one is
@@ -213,26 +201,37 @@ pkg_name() {
 	esac
 }
 
+# System package install with Homebrew fallback (eza/zoxide may be absent
+# from older distro repos). Gated on --install; recycles bash's command
+# hash so a freshly installed binary resolves.
 install_pkg() {
 	if ! $INSTALL_MODE; then return 1; fi
-	local _rc=0
-	if ! install_with_system_mgr "$@"; then
-		if have_native_cmd brew; then
-			local b bpkg=()
-			for b in "$@"; do
-				bpkg+=("$(pkg_name "$b" brew)")
-			done
-			brew install "${bpkg[@]}" || _rc=1
-		else
-			_rc=1
-		fi
+	refresh_pkg
+	local rc=0
+	case "$OS" in
+	debian) sudo_cmd apt-get install -y "$@" ;;
+	arch) sudo_cmd pacman -S --noconfirm "$@" ;;
+	opensuse) sudo_cmd zypper --non-interactive install -y "$@" ;;
+	centos)
+		sudo_cmd dnf install -y epel-release || true
+		sudo_cmd dnf install -y "$@"
+		;;
+	macos) brew install "$@" ;;
+	*) rc=1 ;;
+	esac || rc=$?
+	if [ "$rc" -ne 0 ] && have_native_cmd brew && [ "$OS" != "macos" ]; then
+		local b bpkg=()
+		for b in "$@"; do
+			bpkg+=("$(pkg_name "$b" brew)")
+		done
+		brew install "${bpkg[@]}" || rc=1
 	fi
 	# Freshly installed binaries may be shadowed by bash's per-process
 	# command hash cache (a /mnt shim executed earlier in this same run);
-	# re-scan PATH. Run AFTER capturing _rc — hash -r must not mask the
+	# re-scan PATH. Run AFTER capturing rc — hash -r must not mask the
 	# install status.
 	hash -r
-	return "$_rc"
+	return "$rc"
 }
 
 get_install_hint() {
@@ -273,7 +272,7 @@ print_platform() {
 	opensuse) echo -e "  Package manager: ${CYAN}zypper${NC}" ;;
 	centos) echo -e "  Package manager: ${CYAN}dnf${NC}" ;;
 	macos) echo -e "  Package manager: ${CYAN}homebrew${NC}" ;;
-	*) echo -e "  ${WARN} Unsupported OS — install dependencies manually" ;;
+	*) warn "Unsupported OS — install dependencies manually" ;;
 	esac
 	echo ""
 }
@@ -285,7 +284,7 @@ check_required_tools() {
 	echo ""
 }
 
-# Sets MISSING_OPTIONAL. Optional tools must NOT poison ALL_PASSED — a
+# Sets MISSING_OPTIONAL. Optional tools must NOT increment REQUIRED_FAILURES — a
 # missing fzf degrades features but monkey-zsh still works.
 check_optional_tools() {
 	echo -e "${BOLD}Optional tools${NC}"
@@ -299,9 +298,9 @@ check_optional_tools() {
 		go) desc="go (build smart-suggestion on first load)" ;;
 		esac
 		if have_native_cmd "$tool"; then
-			echo -e "  ${PASS} ${desc}"
+			ok "${desc}"
 		else
-			echo -e "  ${FAIL} ${desc}"
+			fail "${desc}"
 			MISSING_OPTIONAL+=("$tool")
 		fi
 	done
@@ -311,14 +310,14 @@ check_optional_tools() {
 check_terminal_caps() {
 	echo -e "${BOLD}Terminal capabilities${NC}"
 	if [[ -n "${COLORTERM:-}" ]] || [[ "$TERM" =~ (256color|tmux|screen|alacritty|kitty|wezterm|xterm-kitty) ]]; then
-		echo -e "  ${PASS} TERM=${TERM} (true color capable)"
+		ok "TERM=${TERM} (true color capable)"
 	else
-		echo -e "  ${WARN} TERM=${TERM} — true color may not work"
+		warn "TERM=${TERM} — true color may not work"
 	fi
 	if [[ "$LANG" == *".UTF-8" || "$LANG" == *".utf8" ]]; then
-		echo -e "  ${PASS} LANG=${LANG}"
+		ok "LANG=${LANG}"
 	else
-		echo -e "  ${WARN} LANG=${LANG} (UTF-8 recommended)"
+		warn "LANG=${LANG} (UTF-8 recommended)"
 	fi
 	echo ""
 }
@@ -329,7 +328,7 @@ check_config_files() {
 	# chained run and burn all three retries. Standalone runs (the manual
 	# diagnosis entry point) still get the full check.
 	if $SKIP_CONFIG_CHECKS; then
-		echo -e "  ${WARN} config checks skipped (handled by the installer)"
+		warn "config checks skipped (handled by the installer)"
 		return 0
 	fi
 	echo -e "${BOLD}Config files${NC}"
@@ -338,31 +337,31 @@ check_config_files() {
 		local target
 		target=$(readlink -f "$zshrc" 2>/dev/null || readlink "$zshrc")
 		if [[ -f "$target" ]]; then
-			echo -e "  ${PASS} .zshrc → ${target}"
+			ok ".zshrc → ${target}"
 		else
-			echo -e "  ${FAIL} .zshrc symlink broken → ${target}"
-			ALL_PASSED=false
+			fail ".zshrc symlink broken → ${target}"
+			REQUIRED_FAILURES=$((REQUIRED_FAILURES + 1))
 		fi
 	elif [[ -f "$zshrc" ]]; then
-		echo -e "  ${WARN} .zshrc exists but is not a symlink"
+		warn ".zshrc exists but is not a symlink"
 	else
-		echo -e "  ${FAIL} .zshrc not found (run: ln -sf $(pwd)/.zshrc ~/.zshrc)"
-		ALL_PASSED=false
+		fail ".zshrc not found (run: ln -sf $(pwd)/.zshrc ~/.zshrc)"
+		REQUIRED_FAILURES=$((REQUIRED_FAILURES + 1))
 	fi
 
 	if [[ -f "${HOME}/.zprofile" ]]; then
-		echo -e "  ${PASS} .zprofile exists (login-shell env)"
+		ok ".zprofile exists (login-shell env)"
 	else
-		echo -e "  ${WARN} .zprofile not found (optional; put login env vars there)"
+		warn ".zprofile not found (optional; put login env vars there)"
 	fi
 
 	local zinit_home="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 	if [[ -f "$zinit_home/zinit.zsh" ]]; then
-		echo -e "  ${PASS} zinit installed"
+		ok "zinit installed"
 	elif [[ -d "$zinit_home" ]]; then
-		echo -e "  ${WARN} zinit dir exists but may be incomplete"
+		warn "zinit dir exists but may be incomplete"
 	else
-		echo -e "  ${WARN} zinit not installed (auto-cloned on first zsh start)"
+		warn "zinit not installed (auto-cloned on first zsh start)"
 	fi
 
 	echo ""
@@ -379,10 +378,10 @@ check_python3() {
 
 # The required checks, in ONE place: main runs them up front, and
 # install_missing_required re-runs them after installing — the install
-# changed the world, so the verdict (ALL_PASSED / MISSING_REQUIRED) is
+# changed the world, so the verdict (REQUIRED_FAILURES / MISSING_REQUIRED) is
 # always recomputed from here and never carried over stale.
 run_required_checks() {
-	ALL_PASSED=true
+	REQUIRED_FAILURES=0
 	MISSING_REQUIRED=()
 	print_zsh_version
 	check_required_tools
@@ -424,9 +423,9 @@ install_missing_optional() {
 		if install_pkg "${opkgs[@]}"; then
 			for bin in "${MISSING_OPTIONAL[@]}"; do
 				if have_native_cmd "$bin"; then
-					echo -e "  ${PASS} ${bin} installed"
+					ok "${bin} installed"
 				else
-					echo -e "  ${FAIL} ${bin} still missing"
+					fail "${bin} still missing"
 				fi
 			done
 		else
@@ -437,7 +436,7 @@ install_missing_optional() {
 }
 
 print_summary() {
-	if $ALL_PASSED; then
+	if [ "$REQUIRED_FAILURES" -eq 0 ]; then
 		echo -e "${GREEN}${BOLD}All required dependencies satisfied.${NC}"
 		exit 0
 	else
@@ -454,6 +453,7 @@ print_summary() {
 main() {
 	parse_args "$@"
 	OS=$(os_detect)
+	readonly OS
 	MISSING_REQUIRED=()
 	MISSING_OPTIONAL=()
 	print_header
