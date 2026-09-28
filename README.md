@@ -48,6 +48,8 @@ Install zsh and all dependencies, and set up monkey-zsh automatically:
 curl -fsSL https://raw.githubusercontent.com/QMonkey/monkey-zsh/master/install.sh | bash
 ```
 
+> The one-liner needs `git` besides `curl` itself: the installer clones this repository into `~/Documents/monkey-zsh` before it can install anything. If `git` is missing, the script stops with an error — install it with your system's package manager and re-run the same command.
+
 What the script does, step by step:
 
 1. Install zsh via the system package manager (no source build — every supported distro ships >= 5.3; checkhealth verifies the version)
@@ -128,7 +130,7 @@ git subtree pull -P scripts --squash https://github.com/QMonkey/monkey-scripts.g
 ```
 
 The one-click installer works without a subtree: on the `curl | bash` path it
-clones *this* repo straight into the install directory (`~/Documents/monkey-zsh`)
+clones _this_ repo straight into the install directory (`~/Documents/monkey-zsh`)
 and runs the `install.sh` from that clone, so the installer and the `scripts/`
 it loads always come from the same revision. If that directory already exists
 but is not a git clone, the installer refuses to touch it and tells you so.
