@@ -108,6 +108,15 @@ PROMPT2=$'%F{blue}.%f '
 PROMPT_EOL_MARK=''
 
 # ---------- Key bindings ----------
+# Pin the emacs keymap explicitly. When neither the `emacs` nor `vi` option is
+# set, zsh picks the keymap from $EDITOR -- and any EDITOR whose name contains
+# "vi" (nvim, vim, vi) flips the whole shell into viins, where ^A/^E/^F are
+# unbound (self-insert). zsh-autosuggestions accepts the inline suggestion by
+# *wrapping* the forward-char / end-of-line widgets, so in viins the accept key
+# does not exist and only the arrow key (vi-forward-char) works. Pinning emacs
+# here keeps ^E (end-of-line) and ^F (forward-char) accept the ghost text.
+bindkey -e
+
 # Use terminfo so arrow keys work across terminals (xterm/linux/tmux/...)
 zmodload zsh/terminfo
 bindkey "${terminfo[kcuu1]}" history-substring-search-up
