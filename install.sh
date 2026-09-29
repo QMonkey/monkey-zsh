@@ -58,7 +58,24 @@ if [ ! -f "$_monkey_scripts/install.sh" ]; then
 			echo "  move it aside, delete it, or set INSTALL_DIR elsewhere." >&2
 			exit 1
 		else
-			git clone "$PROJECT_REPO" "$INSTALL_DIR" || exit 1
+			# No retry() available yet — the framework loads only after this
+			# clone succeeds — so inline the standard 3 attempts. A failed clone
+			# leaves a partial directory behind; remove it so the next attempt
+			# cannot trip over "already exists". This branch only runs on a
+			# fresh install (INSTALL_DIR did not exist or was empty), so the rm
+			# can never delete pre-existing data.
+			_monkey_rc=1
+			for _monkey_attempt in 1 2 3; do
+				if git clone "$PROJECT_REPO" "$INSTALL_DIR"; then
+					_monkey_rc=0
+					break
+				fi
+				rm -rf "$INSTALL_DIR"
+				if [ "$_monkey_attempt" -lt 3 ]; then
+					sleep 2
+				fi
+			done
+			[ "$_monkey_rc" -eq 0 ] || exit 1
 		fi
 		# </dev/null: on the curl|bash path stdin is the script pipe, and the
 		# inner installer must not read what is left of the outer one.
@@ -126,15 +143,20 @@ install_step_prepare() {
 }
 install_step_tool() {
 	install_zsh
+	# Switch the login shell BEFORE the framework writes any env blocks:
+	# shell_env_files() (persist_path, Homebrew shellenv, tmux auto-start)
+	# reads the login shell from the user database to pick the target
+	# profile — with chsh still pending the blocks would land in
+	# .bash_profile/.profile instead of ~/.zprofile, and only a re-run
+	# (or a later component) would write them where zsh reads them.
+	switch_login_shell
 	echo ""
 }
 install_step_post_tool() {
 	install_linuxbrew
 	echo ""
 }
-install_step_after() {
-	switch_login_shell
-	echo ""
-}
+# chsh already happened in install_step_tool (see the comment there).
+install_step_after() { :; }
 
 install_main "$@"
