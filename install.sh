@@ -124,16 +124,42 @@ install_zsh() {
 
 # Non-interactive by design (the installer runs unattended) and idempotent:
 # skipped when the login shell is already zsh, or when zsh is not a valid
-# login shell (missing from /etc/shells).
+# login shell (missing from /etc/shells). NEVER silent: a skipped switch is
+# the root cause of env blocks landing in .bash_profile instead of
+# ~/.zprofile (shell_env_files picks the target profile from the login
+# shell), so every skip/failure path prints why.
 switch_login_shell() {
-	local zsh_bin
+	local zsh_bin alt
 	zsh_bin=$(command -v zsh) || return 0
-	grep -qx "$zsh_bin" /etc/shells 2>/dev/null || return 0
+	# chsh validates against /etc/shells, and the registered path varies:
+	# Fedora's zsh package registers BOTH /usr/bin/zsh and /bin/zsh, older
+	# releases only /bin/zsh — the same binary through the unified-/usr
+	# symlink. Prefer a path /etc/shells actually lists.
+	if ! grep -qx "$zsh_bin" /etc/shells 2>/dev/null; then
+		for alt in /bin/zsh /usr/bin/zsh; do
+			[ "$alt" = "$zsh_bin" ] && continue
+			if grep -qx "$alt" /etc/shells 2>/dev/null &&
+				[ "$(readlink -f "$alt" 2>/dev/null)" = "$(readlink -f "$zsh_bin" 2>/dev/null)" ]; then
+				zsh_bin=$alt
+				break
+			fi
+		done
+	fi
+	if ! grep -qx "$zsh_bin" /etc/shells 2>/dev/null; then
+		warn "zsh ($zsh_bin) is not in /etc/shells — login shell not switched."
+		warn "  env blocks will land in the bash profiles; fix: echo $zsh_bin | sudo tee -a /etc/shells && chsh -s $zsh_bin"
+		return 0
+	fi
 	if [ "$(getent passwd "$(id -un)" | cut -d: -f7)" = "$zsh_bin" ]; then
 		ok "login shell is already zsh."
 		return 0
 	fi
-	sudo_cmd chsh -s "$zsh_bin" "$(id -un)" && ok "login shell switched to zsh."
+	if sudo_cmd chsh -s "$zsh_bin" "$(id -un)"; then
+		ok "login shell switched to zsh."
+	else
+		warn "chsh failed — env blocks will land in the bash profiles."
+		warn "  switch manually: chsh -s $zsh_bin"
+	fi
 }
 
 # A hook prints its own trailing blank line when it produced output.
