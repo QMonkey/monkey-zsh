@@ -56,22 +56,6 @@ INSTALL_OPTIONAL_PHASE=late
 # capabilities FIRST, then installs required and optional batches
 # (INSTALL_*_PHASE=late).
 
-install_missing_required() {
-	if ! $INSTALL_MODE || [[ ${#MISSING_REQUIRED[@]} -eq 0 ]]; then
-		return 0
-	fi
-	echo -e "${YELLOW}Installing missing packages: ${MISSING_REQUIRED[*]}${NC}"
-	echo ""
-	if install_pkg "${MISSING_REQUIRED[@]}"; then
-		run_required_checks
-		if [[ ${#MISSING_REQUIRED[@]} -gt 0 ]]; then
-			echo -e "${RED}Run: $(get_install_hint "${MISSING_REQUIRED[*]}")${NC}"
-		fi
-	else
-		echo -e "${RED}Failed. Run: $(get_install_hint "${MISSING_REQUIRED[*]}")${NC}"
-	fi
-	echo ""
-}
 
 install_missing_optional() {
 	if ! $INSTALL_MODE || [[ ${#MISSING_OPTIONAL[@]} -eq 0 ]]; then
