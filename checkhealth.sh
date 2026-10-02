@@ -37,6 +37,9 @@ REQUIRED_CHECKS=(
 )
 
 # ──────────────────────── optional ────────────────────────
+# fzf ships far newer via Homebrew than most distro repos — prefer brew
+# when it exists (install_pkg splits the batch on these names).
+BREW_FIRST=(fzf)
 # Missing entries are reported red but never fail the check; they are only
 # installed under --install (INSTALL_OPTIONAL=1).
 OPTIONAL_SECTION_TITLE="Optional tools"
