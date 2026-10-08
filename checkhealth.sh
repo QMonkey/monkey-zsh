@@ -54,41 +54,6 @@ INSTALL_OPTIONAL=1
 INSTALL_REQUIRED_PHASE=late
 INSTALL_OPTIONAL_PHASE=late
 
-# ──────────────────────── install steps ────────────────────────
-# Verbatim upstream: zsh lists optionals and prints Terminal
-# capabilities FIRST, then installs required and optional batches
-# (INSTALL_*_PHASE=late).
-
-
-install_missing_optional() {
-	if ! $INSTALL_MODE || [[ ${#MISSING_OPTIONAL[@]} -eq 0 ]]; then
-		return 0
-	fi
-	echo -e "${YELLOW}Installing missing optional tools: ${MISSING_OPTIONAL[*]}${NC}"
-	echo ""
-	# Package names that differ from the binary name live in the
-	# pm-parameterized pkg_name() above — one mapping table for the
-	# system manager and the brew fallback alike.
-	local opkgs=() bin b
-	for b in "${MISSING_OPTIONAL[@]}"; do
-		opkgs+=("$(pkg_name "$b" "$OS")")
-	done
-	if [[ ${#opkgs[@]} -gt 0 ]]; then
-		if install_pkg "${opkgs[@]}"; then
-			for bin in "${MISSING_OPTIONAL[@]}"; do
-				if have_native_cmd "$bin"; then
-					ok "${bin} installed"
-				else
-					fail "${bin} still missing"
-				fi
-			done
-		else
-			echo -e "${RED}Failed. Run: $(get_install_hint "${opkgs[*]}")${NC}"
-		fi
-	fi
-	echo ""
-}
-
 # ──────────────────────── config ────────────────────────
 # Checked inside the required run (between "Required tools" and python3),
 # so it is re-evaluated after --install has run.
