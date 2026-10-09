@@ -22,10 +22,6 @@ PROJECT_REPO=https://github.com/QMonkey/monkey-zsh.git
 INSTALL_DIR="${INSTALL_DIR:-$HOME/Documents/monkey-zsh}"
 
 # No scripts/ next to this file: either a checkout predating the subtree
-# commit (pull it in and carry on) or `curl | bash`, which has no checkout
-# at all. The latter clones THIS project and runs the install.sh from that
-# checkout, so installer and scripts/ always come from the same revision.
-# No scripts/ next to this file: either a checkout predating the subtree
 # commit (pull it in and carry on), a .git-less directory (zip/tarball),
 # or `curl | bash`, which has no checkout at all. The latter two bootstrap
 # through INSTALL_DIR and run the install.sh from that checkout, so
@@ -169,6 +165,7 @@ switch_login_shell() {
 	fi
 }
 
+# ──────────────────────── hooks ────────────────────────
 # A hook prints its own trailing blank line when it produced output.
 install_step_prepare() {
 	ensure_git
