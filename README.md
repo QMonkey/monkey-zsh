@@ -45,7 +45,7 @@ Pick one of the two ways below: a one-click script, or manual setup.
 Install zsh and all dependencies, and set up monkey-zsh automatically:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/QMonkey/monkey-zsh/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/QMonkey/monkey-zsh/master/install.sh | bash 2>&1 | tee monkey-zsh-install.log
 ```
 
 > The one-liner needs `git` besides `curl` itself: the installer clones this repository into `~/Documents/monkey-zsh` before it can install anything. If `git` is missing, the script stops with an error — install it with your system's package manager and re-run the same command.
