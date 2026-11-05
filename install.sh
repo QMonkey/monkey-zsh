@@ -183,7 +183,7 @@ install_step_tool() {
 	echo ""
 }
 install_step_post_tool() {
-	install_linuxbrew
+	ensure_homebrew
 	echo ""
 }
 
