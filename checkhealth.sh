@@ -37,15 +37,14 @@ REQUIRED_CHECKS=(
 )
 
 # ──────────────────────── optional ────────────────────────
-# fzf ships far newer via Homebrew than most distro repos — prefer brew
-# when it exists (install_pkg splits the batch on these names).
-BREW_FIRST=(fzf)
 # Missing entries are reported red but never fail the check; they are only
 # installed under --install (INSTALL_OPTIONAL=1).
 OPTIONAL_SECTION_TITLE="Optional tools"
 OPTIONAL_SECTION_NOTE="(Missing won't block monkey-zsh, but will disable some features)"
 OPTIONAL_CHECKS=(
-	"fzf|bin|fzf (fzf-tab / forgit / fzf integration)"
+	# Homebrew first: most distro repos ship fzf far older. The order lives
+	# in this row's strategy now, not in a global list.
+	"fzf|bin|fzf (fzf-tab / forgit / fzf integration)|brew,pkg"
 	"zoxide|bin|zoxide (smart cd)"
 	"eza|bin|eza (ls aliases)"
 	"go|bin|go (build smart-suggestion on first load)"
