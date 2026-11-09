@@ -64,7 +64,9 @@ fi
 zinit light zsh-users/zsh-autosuggestions
 zinit light zsh-users/zsh-history-substring-search
 
-# AI completion (smart-suggestion): enabled when any provider API key is set (see README)
+# AI completion (smart-suggestion): enabled when a provider is named, or an
+# openai/anthropic/gemini/deepseek key is set — the gate tests no Azure key,
+# so an Azure-only setup must name the provider (see README)
 if [[ -n "${SMART_SUGGESTION_AI_PROVIDER:-}" || -n "${OPENAI_API_KEY:-}" \
    || -n "${ANTHROPIC_API_KEY:-}" || -n "${GEMINI_API_KEY:-}" || -n "${DEEPSEEK_API_KEY:-}" ]]; then
   zinit as"program" atclone'./build.sh' atpull'%atclone' \
@@ -150,7 +152,7 @@ alias ....='cd ../../..'
 
 # ---------- git aliases (curated from oh-my-zsh git plugin) ----------
 # forgit takes over ga/gd/gbl/gco/gbd/gsw/grb (fzf-interactive versions);
-# the rest stay as plain git aliases. Loaded below, before this block.
+# the rest stay as plain git aliases.
 alias g='git'
 alias gaa='git add --all'
 alias gau='git add --update'
