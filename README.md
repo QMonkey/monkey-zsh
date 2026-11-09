@@ -9,8 +9,9 @@ Plugin management uses [Zinit](https://github.com/zdharma-continuum/zinit)
 
 ## Features
 
-- **Zinit plugin management**: declarative loading with ice modifiers
-  (compile / programs / lazy load); plugins installed under `~/.local/share/zinit`
+- **Zinit plugin management**: declarative loading — `zinit light` for the
+  plugins, one `as"program"` + `atclone'./build.sh'` ice for smart-suggestion;
+  plugins installed under `~/.local/share/zinit`
 - **Plain-text two-line prompt**:
   - Line 1: `user@host path git status`
   - Line 2: only the `>` prompt char (green = last command OK, red = failed)
@@ -25,14 +26,15 @@ Plugin management uses [Zinit](https://github.com/zdharma-continuum/zinit)
 - **eza aliases**: `ls` colored listing, `ll`, `la`, `lt` tree, `lg` git-status
   column (falls back to native `ls` when eza is missing)
 - **git aliases + forgit**: plain `g`/`gc`/`gp`/`gst`/... for common git ops;
-  fzf-interactive versions take over `ga` `gd` `glo` `gco` `gsw` `gbd` `grb` `gbl`
-  (forgit, requires fzf)
+  forgit adds the fzf-interactive `ga` `gd` `glo` `gco` `gsw` `gbd` `grb` `gbl`
+  ... (full table below; loaded only when fzf is installed)
 
 ## Requirements
 
-- zsh 5.3+ (zinit's minimum; most features work on 5.1+, 5.3 enables the full feature set)
+- zsh 5.3+ (the gate `checkhealth.sh` enforces; `install.sh` never builds zsh from source because every supported distro ships >= 5.3)
 - git (required; zinit is cloned via git on first startup)
-- fzf (optional; used by fzf-tab, the AI picker, and forgit — forgit requires fzf >= 0.60.0)
+- python3 (required by `checkhealth.sh`; it runs the TIOCSTI injection into the running terminal and the installer's `zsh.env` merge)
+- fzf (optional; used by fzf-tab, the Ctrl-R / Ctrl-T / Alt-C widgets, zoxide's `zi` picker and forgit — forgit requires fzf >= 0.60.0)
 - zoxide / eza (optional; config degrades gracefully when missing)
 - go (optional; needed to build smart-suggestion on first load)
 
@@ -52,14 +54,15 @@ curl -fsSL https://raw.githubusercontent.com/QMonkey/monkey-zsh/master/install.s
 
 What the script does, step by step:
 
-1. Install zsh via the system package manager (no source build — every supported distro ships >= 5.3; checkhealth verifies the version)
-2. Pre-authorize `sudo` once — the only password entry of the whole run — and install a **temporary** NOPASSWD sudoers drop-in for the invoking user, removed automatically on exit. Homebrew resets the sudo timestamp on every `brew` invocation and WSL2 clock jumps invalidate tickets; NOPASSWD makes the run immune to both in any command order. If the drop-in cannot be installed, the script falls back to a background keepalive plus lazy re-authentication
-3. Install Homebrew (Linuxbrew) as the fallback package manager (eza/zoxide are absent from some distro repos) — its shellenv is persisted to your login profile
-4. Clone monkey-zsh to `~/Documents/monkey-zsh` (or update it if already cloned)
-5. Symlink `~/.zshrc` to the repo and create `~/.zprofile`
-6. Install git, fzf, zoxide, eza and go via `checkhealth.sh --install` (with Homebrew fallback); WSL Windows-PATH shims (`/mnt/...`) are detected and the real Linux packages get installed instead
-7. Persist `~/go/bin`, `~/.cargo/bin` (and `/usr/local/bin`) in your login profile
-8. Switch the login shell to zsh (non-interactive; idempotent — skipped when already zsh)
+1. Pre-authorize `sudo` once — the only password entry of the whole run — and install a **temporary** NOPASSWD sudoers drop-in for the invoking user, removed automatically on exit. Homebrew resets the sudo timestamp on every `brew` invocation and WSL2 clock jumps invalidate tickets; NOPASSWD makes the run immune to both in any command order. If the drop-in cannot be installed, or is written but not parsed, the run falls back to the sudo timestamp: one re-authentication on a long run, and a privileged step that cannot prompt fails and is reported instead
+2. Install `git` when the host has none (it is needed to clone this repository, and zinit clones its plugins with it on the first zsh start)
+3. Install zsh via the system package manager (no source build — every supported distro ships >= 5.3; checkhealth verifies the version), then switch the login shell to zsh right away (non-interactive; idempotent — skipped when already zsh, or when zsh is not in `/etc/shells`). The switch comes before everything that writes to a profile: the framework picks the target profile from the login shell, so a pending `chsh` would drop the env blocks into the bash profiles instead of `~/.zprofile`
+4. Install Homebrew (Linuxbrew) as the second package lane on Linux (on macOS it is the only lane) — it carries the names the distro index lacks or ships far older (fzf is asked from Homebrew first) — and persist its `bin`/`sbin` in the PATH block of step 8
+5. Clone monkey-zsh to `~/Documents/monkey-zsh` (or update it if already cloned)
+6. Install git, python3, fzf, zoxide, eza and go via `checkhealth.sh --install` (fzf asks Homebrew first, the distro manager second); WSL Windows-PATH shims (`/mnt/...`) are detected and the real Linux packages get installed instead
+7. Symlink `~/.zshrc` to the repo and create `~/.zprofile`
+8. Persist one PATH block in your login profile: the framework bin dirs (`~/.local/bin`, `${CARGO_HOME:-~/.cargo}/bin`, `GOBIN`/every `GOPATH` entry's bin, `~/.npm-global/bin`) plus the Homebrew `bin`/`sbin` — on macOS Homebrew is prepended like any other bin dir (so it lands below the framework dirs, above `/usr/local/bin`); on Linux/WSL it is inserted positionally (after the system paths, ahead of the WSL `/mnt` shims only)
+9. Write `~/.config/env/zsh.env` (0600) with every provider key it seeds — values you exported before the run included, the rest left empty — plus one marker-guarded `source` line in your login profile (see _Provider configuration file_ below)
 
 > Zinit and all plugins are cloned automatically on the first zsh start.
 >
@@ -68,7 +71,7 @@ What the script does, step by step:
 ### Option 2: Manual installation
 
 ```bash
-git clone https://github.com/qmonkey/monkey-zsh ~/Documents/monkey-zsh
+git clone https://github.com/QMonkey/monkey-zsh ~/Documents/monkey-zsh
 ln -sf ~/Documents/monkey-zsh/.zshrc ~/.zshrc
 chsh -s /usr/bin/zsh   # switch to zsh (optional)
 ```
@@ -79,34 +82,52 @@ On first startup Zinit is cloned automatically and all plugins are downloaded.
 
 ```bash
 # Ubuntu/Debian
-sudo apt-get install zsh git fzf zoxide eza golang-go
+sudo apt-get install zsh git python3 fzf zoxide eza golang-go
 
 # OpenSUSE
-sudo zypper install zsh git fzf zoxide eza go
+sudo zypper install zsh git python3 fzf zoxide eza go
 
 # CentOS (fzf/eza come from EPEL)
 sudo dnf install epel-release
-sudo dnf install zsh git fzf zoxide eza golang
+sudo dnf install zsh git python3 fzf zoxide eza golang
+
+# Fedora (same names, no EPEL — Fedora ships them in the base repos)
+sudo dnf install zsh git python3 fzf zoxide eza golang
 
 # Arch Linux
-sudo pacman -S zsh git fzf zoxide eza go
+sudo pacman -S zsh git python fzf zoxide eza go
 
 # macOS
-brew install zsh git fzf zoxide eza go
+brew install zsh git python3 fzf zoxide eza go
 ```
 
 Or run the health check with `--install` to auto-install missing
-dependencies (supports apt/zypper/dnf/pacman/brew):
+dependencies (the distro manager — `apt`/`zypper`/`dnf`/`pacman` — with the
+AUR behind it on Arch, and Homebrew behind that):
 
 ```bash
 ./checkhealth.sh --install
 ```
+
+`checkhealth.sh` exits 1 when a required dependency is missing (optional
+tools only print a red line). `--help` lists the options; `SUDO_DROPIN=0` or
+`1` overrides whether `--install` installs the temporary NOPASSWD drop-in
+(default: no drop-in for a manual run, drop-in when an installer chains it).
+
+What it checks: the zsh version gate (5.3), the required tools (`git`,
+`python3`), the optional ones (`fzf`, `zoxide`, `eza`, `go`), the config files
+(`~/.zshrc` — a symlink whose target exists; `~/.zprofile`; the zinit
+checkout), and the terminal capabilities plus `LANG`.
 
 ### Environment variables (login shell)
 
 bash and zsh read different login files: bash reads `~/.bash_profile`
 (often just a `source ~/.bashrc`), zsh reads `~/.zprofile`. Put login-only
 environment variables directly in `~/.zprofile`.
+
+Variables that belong to monkey-zsh itself don't go there by hand: the
+installer keeps them in `~/.config/env/zsh.env` and `~/.zprofile` gets one
+line that sources it (see _Provider configuration file_ below).
 
 Do not `source ~/.profile` or `~/.bashrc` from zsh — `~/.profile` typically
 sources `~/.bashrc`, and both are full of bash-only syntax and interactive
@@ -197,17 +218,36 @@ aliases (`g`/`gc`/`gp`/`gst`/...) live in the Aliases section below.
 
 ## AI completion (smart-suggestion)
 
-Enabled automatically once any provider API key is set, otherwise fully disabled:
+Enabled by `.zshrc` when `SMART_SUGGESTION_AI_PROVIDER` names a provider, or
+when any of `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` /
+`DEEPSEEK_API_KEY` is set; otherwise the plugin is not loaded at all. The
+default is OpenAI — one variable is enough:
 
 ```bash
 export OPENAI_API_KEY="sk-..."
-# or
-export SMART_SUGGESTION_AI_PROVIDER=deepseek
-export DEEPSEEK_API_KEY="..."
+```
+
+Any other provider is the same shape — set its own key (e.g.
+`DEEPSEEK_API_KEY="sk-..."`); no switch needed. With several keys set and the
+switch left empty, the plugin picks the first non-empty provider in its own
+order: openai, azure_openai, anthropic, gemini, deepseek. Two cases do name
+the switch:
+
+```bash
+# 1. Azure-only: the gate tests none of the Azure keys, so without this the
+#    plugin is never loaded.
+export SMART_SUGGESTION_AI_PROVIDER=azure_openai
+export AZURE_OPENAI_API_KEY="..."
+export AZURE_OPENAI_RESOURCE_NAME="..."     # or AZURE_OPENAI_BASE_URL
+export AZURE_OPENAI_DEPLOYMENT_NAME="..."
+
+# 2. Several keys set and you want a specific one:
+export SMART_SUGGESTION_AI_PROVIDER=gemini
 ```
 
 Providers: `openai | azure_openai | anthropic | gemini | deepseek`.
-You can also put config in `~/.config/smart-suggestion/config.zsh`.
+Configuration is environment-only — smart-suggestion reads no config file;
+`~/.config/env/zsh.env` is where the installer keeps these variables (below).
 
 ### Custom endpoint (OpenAI-compatible)
 
@@ -229,8 +269,96 @@ export ANTHROPIC_BASE_URL="https://api.anthropic.com"
 ```
 
 Available: `OPENAI_BASE_URL` (also works for local OpenAI-compatible servers
-like Ollama, e.g. `http://localhost:11434/v1`), `AZURE_OPENAI_BASE_URL`,
+like Ollama — every `*_BASE_URL` is only a prefix and the plugin appends its
+own path, `/v1/chat/completions` for openai, so give the host root:
+`http://localhost:11434`), `AZURE_OPENAI_BASE_URL`,
 `ANTHROPIC_BASE_URL`, `GEMINI_BASE_URL`, `DEEPSEEK_BASE_URL`.
+
+Which model a request carries is decided per provider, and the surfaces are
+not uniform:
+
+| provider       | where its model comes from                                        | can you choose it                      |
+| -------------- | ----------------------------------------------------------------- | -------------------------------------- |
+| `openai`       | fixed in the plugin                                               | **no** — there is no `OPENAI_MODEL`    |
+| `anthropic`    | fixed in the plugin                                               | **no** — there is no `ANTHROPIC_MODEL` |
+| `azure_openai` | `AZURE_OPENAI_DEPLOYMENT_NAME`, which _is_ the `model` field sent | yes, through that variable             |
+| `gemini`       | `GEMINI_MODEL`, else the plugin's own default                     | yes                                    |
+| `deepseek`     | `DEEPSEEK_MODEL`, else the plugin's own default                   | yes                                    |
+
+`AZURE_OPENAI_API_VERSION` pins the API version, not the model.
+
+Two consequences worth knowing before you rely on either side:
+
+- Against a plain OpenAI- or Anthropic-compatible endpoint you cannot pick the
+  model from the plugin at all — there is no variable and no flag for it.
+- If you route such a provider through a proxy or gateway that terminates the
+  request and fills in its own model, the plugin's value never reaches the
+  upstream: the proxy decides. That choice belongs to the proxy's own
+  configuration, not to zsh, so it is deliberately not a key in `zsh.env` and
+  nothing here names it.
+
+### Provider configuration file (`~/.config/env/zsh.env`)
+
+**`~/.config/env/zsh.env` is zsh's environment file, and these variables do
+not have to live in your profile by hand.** The profiles source it with
+`set -a`, so everything in it reaches zsh and every process zsh starts —
+smart-suggestion's provider set is just what the installer seeds there today.
+If you export those variables before running the installer, the install
+persists them: every seeded key lands in that file (0600, in the family's
+shared env-file directory) and your login profile gets one marker-guarded
+line that sources it:
+
+```bash
+# [normal] zsh env (remove these lines to disable)
+[[ -f ~/.config/env/zsh.env ]] && { set -a; source ~/.config/env/zsh.env; set +a; }
+```
+
+The path is built from `$ZSH_ENV_FILE`, which follows `$XDG_CONFIG_HOME`. While
+that lands under `$HOME` the line is written `~`-relative, which is how a person
+reads a profile and how the rest of the family's lines look; the absolute form
+is kept only when `$XDG_CONFIG_HOME` points outside `$HOME`, because a literal
+`~` would then name a different file.
+
+(The line is written once, at install time, and is not re-expanded afterwards:
+it carries the literal `~` form only when the file really is under `$HOME`.)
+
+Rules of that block (the file and the variable names are monkey-zsh's own —
+no other project's credential store or variables are read or written):
+
+- The file and the profile line are written on **every** run, even when the
+  install exported nothing — every key is there, empty, ready to fill in.
+- `SMART_SUGGESTION_AI_PROVIDER` empty means nothing is pinned: the plugin
+  detects its provider from whichever API key is set. A value outside
+  `openai | azure_openai | anthropic | gemini | deepseek` is reported (such a
+  provider fails every request) and the keys are written anyway, so fixing it
+  is one line in the file.
+- Every seeded key is in the file, and **empty means unset**: the plugin tests
+  each provider variable against `""` and falls back to its own endpoint
+  default, so an empty line cannot build a half-configured URL.
+- Only the provider set is seeded. The plugin's own behaviour knobs
+  (trigger key, send-context, debug, proxy mode, auto-update, update interval,
+  history lines, binary path) configure the plugin, not zsh's AI access, so they
+  are not written here and keep their upstream defaults (`^o`, `true`, `false`,
+  `true`, `true`, `7`, `10`, self-located). Set them wherever you configure that
+  plugin; note that they are guarded by zsh's `${+VAR}` **presence** test, so a
+  name you write into any sourced file as empty counts as set and wipes its
+  default — nothing in this repo normalizes that any more.
+- When the selected provider is missing a key it cannot work without, the
+  installer names them and warns; the file is still written, so filling those
+  lines by hand needs no re-run.
+- Your own variables survive: `render_fill` rewrites only the keys it was
+  handed, so anything else you add to the file passes through byte for byte.
+- A value already in `zsh.env` wins over this run's export (fill-empty
+  semantics): re-running the installer never clobbers a hand-edit, and to
+  change a value you edit that file. Re-runs also never duplicate the block.
+- Only variables the plugin itself reads are seeded, and that is the whole
+  test. A proxy is not excluded because of its name — `HTTP_PROXY` and friends
+  are inherited from the environment whatever this file contains, so listing
+  them here would only create a second source of truth. The machine-specific
+  part of a configuration is its **value**, not its key: a key the plugin does
+  read is seeded as an empty line for you to fill, and one it does not read is
+  simply not part of this file — see _Custom endpoint (OpenAI-compatible)_
+  above for who decides the model when the plugin does not.
 
 ## Aliases
 
@@ -239,6 +367,8 @@ ls ll la l lt lg    # eza family (lt = tree, lg = git status)
 grep rg             # colored grep / rg (--hidden)
 .. ... ....         # go up 1/2/3 levels
 cat                 # untouched (no bat alias, keeps pipelines safe)
+git aliases         # g gaa gau gapa gb gba gbD gc gca gcam gcmsg gdca gf gfa
+                    # gl glg gm gp gst gsta gstp gswc
 ```
 
 ## Uninstall
@@ -247,6 +377,7 @@ cat                 # untouched (no bat alias, keeps pipelines safe)
 rm ~/.zshrc
 rm -rf ~/.local/share/zinit
 rm -rf ~/.cache/zsh ~/.local/state/zsh/history
+rm ~/.config/env/zsh.env   # and delete the "zsh env" lines from ~/.zprofile
 ```
 
 ## Notes
@@ -254,3 +385,7 @@ rm -rf ~/.cache/zsh ~/.local/state/zsh/history
 - In this config `zi` belongs to zoxide (interactive picker). zinit registers
   a `zi=zinit` alias of its own, which is unaliased in `.zshrc`.
 - Use `zinit update` to update plugins (there is no `zi` command for zinit here).
+- `.zshrc` pins the emacs keymap (`bindkey -e`): with neither the `emacs` nor
+  the `vi` option set, zsh takes the keymap from `$EDITOR`, and an `$EDITOR`
+  whose name contains "vi" (nvim, vim) puts the shell in `viins`, where → and
+  ^E stop accepting the grey suggestion.
