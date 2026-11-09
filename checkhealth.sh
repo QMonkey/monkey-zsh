@@ -9,8 +9,8 @@ set -euo pipefail
 # ──────────────────────────────────────────────────────────────
 
 . "$(dirname "${BASH_SOURCE[0]:-$0}")/scripts/checkhealth.sh" || {
-	echo "monkey-scripts not found — update this checkout (git pull / re-clone)," >&2
-	echo "or run install.sh, which bootstraps monkey-scripts itself." >&2
+	printf '%s\n' "monkey-scripts not found — update this checkout (git pull / re-clone)," >&2
+	printf '%s\n' "or run install.sh, which bootstraps monkey-scripts itself." >&2
 	exit 1
 }
 
@@ -24,7 +24,6 @@ MAIN_VERSION="zsh|ver:5.3|zsh|pkg"
 MAIN_VERSION_TITLE="zsh"
 
 # ──────────────────────── required ────────────────────────
-# Ordered sections: a title, the specs under it, a blank line closes it.
 #   @header|Title   bold section title
 #   @note|text      indented note
 #   @config         the "Config files" section (CONFIG_PHASE=required below)
@@ -42,8 +41,8 @@ REQUIRED_CHECKS=(
 OPTIONAL_SECTION_TITLE="Optional tools"
 OPTIONAL_SECTION_NOTE="(Missing won't block monkey-zsh, but will disable some features)"
 OPTIONAL_CHECKS=(
-	# Homebrew first: most distro repos ship fzf far older. The order lives
-	# in this row's strategy now, not in a global list.
+	# Homebrew first: most distro repos ship fzf far older, and the order
+	# lives in this row's strategy.
 	"fzf|bin|fzf (fzf-tab / forgit / fzf integration)|brew,pkg"
 	"zoxide|bin|zoxide (smart cd)"
 	"eza|bin|eza (ls aliases)"
@@ -55,11 +54,11 @@ INSTALL_OPTIONAL_PHASE=late
 
 # ──────────────────────── config ────────────────────────
 # Checked inside the required run (between "Required tools" and python3),
-# so it is re-evaluated after --install has run.
+# i.e. before the late install phases (--install) have run anything.
 CONFIG_PHASE=required
-# src|dst|desc|mode|name|hint — mode "link" (default) warns about foreign
-# targets, "strict" additionally requires the link to resolve into this repo.
-# hint reproduces upstream's verbatim missing-fail text (ln -sf, not -sfn).
+# src|dst|desc|mode|name|hint — an empty mode (default) only requires the link
+# target to exist; "strict" additionally requires the link to resolve into this
+# repo. hint reproduces upstream's verbatim missing-fail text (ln -sf, not -sfn).
 CONFIG_LINKS=(
 	"$(pwd)/.zshrc|$HOME/.zshrc|.zshrc||.zshrc|.zshrc not found (run: ln -sf $(pwd)/.zshrc ~/.zshrc)"
 )
