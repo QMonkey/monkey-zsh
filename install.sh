@@ -15,7 +15,7 @@ set -euo pipefail
 
 # ──────────────────────── repository identity ────────────────────────
 # Declared before the framework is sourced: the bootstrap below needs both
-# values, and clones into the very directory clone_monkey_project would
+# values, and clones into the very directory clone_project would
 # have used — one clone per run, not two.
 PROJECT=monkey-zsh
 PROJECT_REPO=https://github.com/QMonkey/monkey-zsh.git
@@ -34,15 +34,15 @@ if [ ! -f "$_monkey_scripts/install.sh" ]; then
 		# Outdated checkout: update it in place and keep running from it.
 		git -C "$_monkey_dir" pull --ff-only || true
 		if [ ! -f "$_monkey_dir/scripts/install.sh" ]; then
-			echo "monkey-scripts missing from $_monkey_dir (no scripts/ subtree)." >&2
-			echo "  git -C $_monkey_dir pull    # outdated checkout — or the repo never added the subtree" >&2
+			printf '%s\n' "monkey-scripts missing from $_monkey_dir (no scripts/ subtree)." >&2
+			printf '%s\n' "  git -C $_monkey_dir pull    # outdated checkout — or the repo never added the subtree" >&2
 			exit 1
 		fi
 		_monkey_scripts="$_monkey_dir/scripts"
 	else
 		# curl|bash or a .git-less directory: the only path to a
 		# same-revision scripts/ is the INSTALL_DIR checkout.
-		# clone_monkey_project cannot do this job — it lives in the very
+		# clone_project cannot do this job — it lives in the very
 		# scripts/ being fetched. INSTALL_DIR is where the framework's clone
 		# step would have put the checkout too, so that step only confirms it.
 		if [ -d "$INSTALL_DIR/.git" ]; then
@@ -50,15 +50,15 @@ if [ ! -f "$_monkey_scripts/install.sh" ]; then
 			git -C "$INSTALL_DIR" pull --ff-only || true
 		elif [ -d "$INSTALL_DIR" ] && [ -n "$(ls -A "$INSTALL_DIR")" ]; then
 			# git clone would refuse too, so say why in our own words.
-			echo "$INSTALL_DIR is not empty and is not a git clone." >&2
-			echo "  move it aside, delete it, or set INSTALL_DIR elsewhere." >&2
+			printf '%s\n' "$INSTALL_DIR is not empty and is not a git clone." >&2
+			printf '%s\n' "  move it aside, delete it, or set INSTALL_DIR elsewhere." >&2
 			exit 1
 		else
 			# Fresh clone — the ONLY sub-branch where git is hard-required:
 			# the pull sub-branch above degrades gracefully without it, and
 			# a zip/tarball must not fail here just for a missing git.
 			if ! command -v git >/dev/null 2>&1; then
-				echo "git is required to clone $PROJECT — install it first (e.g. sudo apt-get install git), then re-run." >&2
+				printf '%s\n' "git is required to clone $PROJECT — install it first (e.g. sudo apt-get install git), then re-run." >&2
 				exit 1
 			fi
 			# No retry() available yet — the framework loads only after this
@@ -91,6 +91,21 @@ fi
 # ──────────────────────── layout & data ────────────────────────
 ACQUIRE_TIOCSTI="${ACQUIRE_TIOCSTI:-monkey-zsh}"
 
+# zsh's environment file, persisted at install time (see persist_zsh_env
+# below). Declared here because SUMMARY_LINES renders it.
+# ~/.config/env/ is a directory the family shares: one file per project, named
+# after that project — not after any plugin it happens to configure.
+ZSH_ENV_FILE="${ZSH_ENV_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/env/zsh.env}"
+# The keys the installer seeds, in the order zsh.env.template lists them —
+# smart-suggestion's provider set only: the provider switch plus each
+# provider's own variables. Behaviour knobs (trigger key, send-context, debug,
+# proxy mode, auto-update, update interval, history lines, binary path) are NOT
+# seeded: they configure the plugin, not zsh's AI access, and a knob the
+# installer writes empty would read as set through the plugin's ${+VAR} guard.
+# Every seeded key is written on every run; empty means unset (template
+# header).
+ZSH_ENV_KEYS="SMART_SUGGESTION_AI_PROVIDER OPENAI_API_KEY OPENAI_BASE_URL ANTHROPIC_API_KEY ANTHROPIC_BASE_URL GEMINI_API_KEY GEMINI_BASE_URL GEMINI_MODEL DEEPSEEK_API_KEY DEEPSEEK_BASE_URL DEEPSEEK_MODEL AZURE_OPENAI_API_KEY AZURE_OPENAI_RESOURCE_NAME AZURE_OPENAI_DEPLOYMENT_NAME AZURE_OPENAI_BASE_URL AZURE_OPENAI_API_VERSION"
+
 # src|dst — everything else (dirs to create, files to touch) is ENSURE_*.
 SYMLINKS=(
 	"$INSTALL_DIR/.zshrc|$HOME/.zshrc"
@@ -104,6 +119,7 @@ ENSURE_FILES=(
 PERSIST_PATH=1
 SUMMARY_LINES=(
 	"  Config:   ${CYAN}$INSTALL_DIR/.zshrc${NC} → ${CYAN}~/.zshrc${NC}"
+	"  Env:      ${CYAN}${ZSH_ENV_FILE#"$HOME"/}${NC} (zsh environment; every seeded provider key always written, empty = unset)"
 	"  Plugins:  ${CYAN}~/.local/share/zinit/${NC} (cloned on first zsh start)"
 	""
 	"  Start it: ${CYAN}exec zsh${NC}"
@@ -165,11 +181,83 @@ switch_login_shell() {
 	fi
 }
 
+# ──────────────────────── zsh environment ────────────────────────
+# ZSH_ENV_FILE is zsh's own environment file: the profiles source it with
+# `set -a`, so whatever it holds reaches zsh and every process zsh starts.
+# The file and the profile line are written on every run — an install that
+# exported nothing still leaves every seeded key as an empty line, which is
+# exactly the shape to fill in by hand afterwards.
+#
+# Empty means unset for every seeded key, and that comes from upstream: the
+# plugin tests each provider variable against "" and falls back to its own
+# endpoint default. Nothing here normalizes a name — which is also why the
+# plugin's behaviour knobs are not seeded: those are guarded with zsh's `${+VAR}`
+# presence test, so an installer-written empty line would read as set and wipe
+# the plugin's own default.
+#
+# Keys smart-suggestion does not read stay out of the list: the file mirrors
+# the plugin's variable surface, nothing more. Machine-specific information
+# belongs to values, not to key names — a key that IS read is seeded empty and
+# filled in by hand, and one that is not read is not this file's business.
+#
+# Nothing is shared: this owns no other project's credential store, reads no
+# other project's variables, and re-running any other installer cannot change
+# zsh's completion.
+#
+# Shape follows the family's env-file convention; the mechanism comes from
+# scripts/ (render_fill + append_env_block), the data stays zsh's own.
+persist_zsh_env() {
+	local provider="${SMART_SUGGESTION_AI_PROVIDER:-}" k need="" missing=""
+	case "$provider" in
+	openai) need="OPENAI_API_KEY" ;;
+	anthropic) need="ANTHROPIC_API_KEY" ;;
+	gemini) need="GEMINI_API_KEY" ;;
+	deepseek) need="DEEPSEEK_API_KEY" ;;
+	azure_openai)
+		need="AZURE_OPENAI_API_KEY AZURE_OPENAI_DEPLOYMENT_NAME"
+		# RESOURCE_NAME only builds the hostname when no base URL was given.
+		[ -n "${AZURE_OPENAI_BASE_URL:-}" ] || need="$need AZURE_OPENAI_RESOURCE_NAME"
+		;;
+	"")
+		info "SMART_SUGGESTION_AI_PROVIDER is unset — smart-suggestion detects its provider from whichever API key is set. Writing every key empty for you to fill in."
+		;;
+	*)
+		warn "SMART_SUGGESTION_AI_PROVIDER=$provider is none of openai|azure_openai|anthropic|gemini|deepseek — smart-suggestion fails every request with \"unsupported provider\" until it is. Writing every key anyway."
+		;;
+	esac
+	# A provider whose required variables are missing cannot answer a single
+	# request, so an incomplete set is reported even though the file is
+	# written — it is the hand-fill entry point for exactly this case. Keys
+	# with no requirement of their own (the two branches above) leave need
+	# empty, so this reports nothing for them.
+	for k in $need; do
+		[ -n "${!k:-}" ] || missing="$missing ${k}"
+	done
+	[ -z "$missing" ] ||
+		warn "SMART_SUGGESTION_AI_PROVIDER=$provider but incomplete (missing$missing) — smart-suggestion cannot reach that provider. Export all of them and re-run, or fill the lines in ${ZSH_ENV_FILE#"$HOME"/} by hand."
+	# render_fill runs on python3, which checkhealth installs as a required
+	# tool earlier in the chain; without it the file cannot be merged, and an
+	# unsourced profile block would be worse than no block at all.
+	have_native_cmd python3 || {
+		warn "python3 not found — cannot write ${ZSH_ENV_FILE##*/} (render_fill needs it). zsh env not persisted; re-run after the dependency pass."
+		return 0
+	}
+	# Every key, not only the exported ones: render_fill keeps an existing
+	# non-empty value over this run's environment either way, and the keys with
+	# no value land as empty placeholders that mean unset (see the header
+	# above for how each family of keys gets that meaning).
+	render_fill "$INSTALL_DIR/zsh.env.template" "$ZSH_ENV_FILE" $ZSH_ENV_KEYS || return 0
+	append_env_block "zsh env (remove these lines to disable)" "$(env_source_line "$ZSH_ENV_FILE")"
+	info "zsh env: smart-suggestion keys persisted to ${ZSH_ENV_FILE#"$HOME"/} (0600), empty = unset."
+	info "zsh env: a value already in that file wins over this run's export — edit the file to change one."
+	printf '\n'
+}
+
 # ──────────────────────── hooks ────────────────────────
 # A hook prints its own trailing blank line when it produced output.
 install_step_prepare() {
 	ensure_git
-	echo ""
+	printf '\n'
 }
 install_step_tool() {
 	install_zsh
@@ -180,11 +268,19 @@ install_step_tool() {
 	# .bash_profile/.profile instead of ~/.zprofile, and only a re-run
 	# (or a later component) would write them where zsh reads them.
 	switch_login_shell
-	echo ""
+	printf '\n'
 }
 install_step_post_tool() {
 	brew_ensure
-	echo ""
+	printf '\n'
+}
+
+install_step_after() {
+	# Last: the profiles already carry the family's PATH and credential blocks,
+	# so the zsh env block lands among them, and the dependency pass that
+	# brings python3 (render_fill's engine) has already run.
+	persist_zsh_env
+	printf '\n'
 }
 
 install_main "$@"
