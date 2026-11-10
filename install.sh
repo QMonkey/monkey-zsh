@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ──────────────────────────────────────────────────────────────
 # monkey-zsh one-shot installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/QMonkey/monkey-zsh/master/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/QMonkey/monkey-zsh/master/install.sh | bash 2>&1 | tee monkey-zsh-install.log
 #
 # The shared installer (sudo, packages, clone, checkhealth, symlinks,
 # completion) lives in scripts/ — a `git subtree` of
