@@ -62,7 +62,7 @@ What the script does, step by step:
 6. Install git, python3, fzf, zoxide, eza and go via `checkhealth.sh --install` (fzf asks Homebrew first, the distro manager second); WSL Windows-PATH shims (`/mnt/...`) are detected and the real Linux packages get installed instead
 7. Symlink `~/.zshrc` to the repo and create `~/.zprofile`
 8. Persist one PATH block in your login profile: the framework bin dirs (`~/.local/bin`, `${CARGO_HOME:-~/.cargo}/bin`, `GOBIN`/every `GOPATH` entry's bin, `~/.npm-global/bin`) plus the Homebrew `bin`/`sbin` — on macOS Homebrew is prepended like any other bin dir (so it lands below the framework dirs, above `/usr/local/bin`); on Linux/WSL it is inserted positionally (after the system paths, ahead of the WSL `/mnt` shims only)
-9. Write `~/.config/env/zsh.env` (0600) with every provider key it seeds — values you exported before the run included, the rest left empty — plus one marker-guarded `source` line in your login profile (see _Provider configuration file_ below)
+9. Write `~/.config/env/zsh.env` (0600) with every provider key it seeds plus the proxy trio (`HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY`) — values you exported before the run included, the rest left empty — plus one marker-guarded `source` line in your login profile (see _Provider configuration file_ below)
 
 > Zinit and all plugins are cloned automatically on the first zsh start.
 >
@@ -351,13 +351,22 @@ no other project's credential store or variables are read or written):
 - A value already in `zsh.env` wins over this run's export (fill-empty
   semantics): re-running the installer never clobbers a hand-edit, and to
   change a value you edit that file. Re-runs also never duplicate the block.
-- Only variables the plugin itself reads are seeded, and that is the whole
-  test. A proxy is not excluded because of its name — `HTTP_PROXY` and friends
-  are inherited from the environment whatever this file contains, so listing
-  them here would only create a second source of truth. The machine-specific
-  part of a configuration is its **value**, not its key: a key the plugin does
-  read is seeded as an empty line for you to fill, and one it does not read is
-  simply not part of this file — see _Custom endpoint (OpenAI-compatible)_
+  The proxy trio is the exception worth remembering: those names are the
+  host's, may also be filled in another project's env file, and since nothing
+  rewrites a non-empty line, a rotation has to be applied to every file that
+  lists them — while an empty line here blanks the inherited value for the
+  whole zsh subtree, because this file is sourced last.
+- Two sets are seeded and the test differs for each. The provider keys are
+  what the plugin reads by name. The proxy trio (`HTTPS_PROXY`, `HTTP_PROXY`,
+  `NO_PROXY`) is not a plugin setting at all — it is the environment that
+  binary inherits when it dials the gateway, so it is listed here to give you
+  one place to fill it in, and `NO_PROXY` additionally arrives with the
+  loopback binds merged into whatever you exported (a provider pointed at
+  `127.0.0.1` must not be proxied; `lib/env.sh` `no_proxy_floor` owns that
+  rule and the key list, so no project can spell them differently). The
+  machine-specific part of a configuration is still its **value**, not its
+  key: every one of these lines is seeded empty, never with this host's
+  answer baked in — see _Custom endpoint (OpenAI-compatible)_
   above for who decides the model when the plugin does not.
 
 ## Aliases
