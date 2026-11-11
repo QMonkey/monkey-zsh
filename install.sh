@@ -97,14 +97,16 @@ ACQUIRE_TIOCSTI="${ACQUIRE_TIOCSTI:-monkey-zsh}"
 # after that project — not after any plugin it happens to configure.
 ZSH_ENV_FILE="${ZSH_ENV_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/env/zsh.env}"
 # The keys the installer seeds, in the order zsh.env.template lists them —
-# smart-suggestion's provider set only: the provider switch plus each
-# provider's own variables. Behaviour knobs (trigger key, send-context, debug,
-# proxy mode, auto-update, update interval, history lines, binary path) are NOT
-# seeded: they configure the plugin, not zsh's AI access, and a knob the
-# installer writes empty would read as set through the plugin's ${+VAR} guard.
+# smart-suggestion's provider set plus the family proxy trio. Behaviour knobs
+# (trigger key, send-context, debug, proxy mode, auto-update, update interval,
+# history lines, binary path) are still NOT seeded: they configure the plugin,
+# not zsh's AI access, and a knob the installer writes empty would read as set
+# through the plugin's ${+VAR} guard. Note that SMART_SUGGESTION_PROXY_MODE is
+# one of those knobs — it is the plugin's own logging proxy, nothing to do
+# with the HTTPS_PROXY/HTTP_PROXY/NO_PROXY the HTTP stack reads.
 # Every seeded key is written on every run; empty means unset (template
 # header).
-ZSH_ENV_KEYS="SMART_SUGGESTION_AI_PROVIDER OPENAI_API_KEY OPENAI_BASE_URL ANTHROPIC_API_KEY ANTHROPIC_BASE_URL GEMINI_API_KEY GEMINI_BASE_URL GEMINI_MODEL DEEPSEEK_API_KEY DEEPSEEK_BASE_URL DEEPSEEK_MODEL AZURE_OPENAI_API_KEY AZURE_OPENAI_RESOURCE_NAME AZURE_OPENAI_DEPLOYMENT_NAME AZURE_OPENAI_BASE_URL AZURE_OPENAI_API_VERSION"
+ZSH_ENV_KEYS="SMART_SUGGESTION_AI_PROVIDER OPENAI_API_KEY OPENAI_BASE_URL ANTHROPIC_API_KEY ANTHROPIC_BASE_URL GEMINI_API_KEY GEMINI_BASE_URL GEMINI_MODEL DEEPSEEK_API_KEY DEEPSEEK_BASE_URL DEEPSEEK_MODEL AZURE_OPENAI_API_KEY AZURE_OPENAI_RESOURCE_NAME AZURE_OPENAI_DEPLOYMENT_NAME AZURE_OPENAI_BASE_URL AZURE_OPENAI_API_VERSION $PROXY_ENV_KEYS"
 
 # src|dst — everything else (dirs to create, files to touch) is ENSURE_*.
 SYMLINKS=(
@@ -119,7 +121,7 @@ ENSURE_FILES=(
 PERSIST_PATH=1
 SUMMARY_LINES=(
 	"  Config:   ${CYAN}$INSTALL_DIR/.zshrc${NC} → ${CYAN}~/.zshrc${NC}"
-	"  Env:      ${CYAN}${ZSH_ENV_FILE#"$HOME"/}${NC} (zsh environment; every seeded provider key always written, empty = unset)"
+	"  Env:      ${CYAN}${ZSH_ENV_FILE#"$HOME"/}${NC} (zsh environment; every seeded provider key and HTTPS_PROXY/HTTP_PROXY/NO_PROXY always written, empty = unset)"
 	"  Plugins:  ${CYAN}~/.local/share/zinit/${NC} (cloned on first zsh start)"
 	""
 	"  Start it: ${CYAN}exec zsh${NC}"
@@ -246,9 +248,14 @@ persist_zsh_env() {
 	# non-empty value over this run's environment either way, and the keys with
 	# no value land as empty placeholders that mean unset (see the header
 	# above for how each family of keys gets that meaning).
+	# NO_PROXY is the one key never left empty by this run: the loopback floor
+	# (lib/env.sh no_proxy_floor) is merged into whatever was exported first,
+	# because a provider pointed at a local server (Ollama on 127.0.0.1) would
+	# otherwise be routed through the gateway proxy.
+	export NO_PROXY="$(no_proxy_floor)"
 	render_fill "$INSTALL_DIR/zsh.env.template" "$ZSH_ENV_FILE" $ZSH_ENV_KEYS || return 0
 	append_env_block "zsh env (remove these lines to disable)" "$(env_source_line "$ZSH_ENV_FILE")"
-	info "zsh env: smart-suggestion keys persisted to ${ZSH_ENV_FILE#"$HOME"/} (0600), empty = unset."
+	info "zsh env: smart-suggestion keys and the proxy trio persisted to ${ZSH_ENV_FILE#"$HOME"/} (0600), empty = unset."
 	info "zsh env: a value already in that file wins over this run's export — edit the file to change one."
 	printf '\n'
 }
